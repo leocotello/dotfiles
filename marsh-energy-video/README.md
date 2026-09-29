@@ -33,7 +33,7 @@ O vídeo procura o logo em `assets/`, nesta ordem:
 1. `assets/marsh-logo-white.svg` ou `.png`: versão negativa/branca, usada como está (preferível)
 2. `assets/marsh-logo.svg` ou `.png`: versão colorida, convertida para branco para contrastar com o fundo azul
 
-Sem arquivo, usa o texto "Marsh" como marca provisória. Depois de colocar o arquivo, rode `node render.mjs` de novo.
+`assets/marsh-logo-white.png` é a versão branca gerada a partir do logo oficial enviado (fundo transparente, recortado). Sem arquivo, o vídeo usa o texto "Marsh" como marca provisória. Depois de colocar o arquivo, rode `node render.mjs` de novo.
 Use o logo atual (rebrand de 14/01/2026); o logo "Marsh McLennan" anterior está desatualizado.
 
 ## Dados e fontes
