@@ -132,6 +132,13 @@
   #s8-logo { left: 0; width: 1920px; top: 610px; text-align: center; }
   #s8-logo .m { font-size: 150px; font-weight: 700; letter-spacing: -.045em; line-height: 1; }
   #s8-logo .t { font-size: 34px; font-weight: 400; letter-spacing: .32em; text-transform: uppercase; color: var(--ice); margin-top: 22px; }
+  /* Official logo: drop the file in assets/ (see README). Text wordmark is the fallback. */
+  .logo-img { display: none; }
+  body.has-logo .logo-img { display: block; }
+  body.has-logo .logo-fb { display: none; }
+  body.logo-color .logo-img { filter: brightness(0) invert(1); }
+  #brand .logo-img { height: 34px; width: auto; max-width: 320px; object-fit: contain; }
+  #s8-logo .logo-img { height: 130px; width: auto; max-width: 760px; object-fit: contain; margin: 0 auto; }
   #s8-src { left: 0; width: 1920px; bottom: 60px; text-align: center; font-size: 15px; color: var(--faint); }
 </style>
 </head>
@@ -140,7 +147,7 @@
   <canvas id="bg" width="1920" height="1080"></canvas>
 
   <!-- persistent chrome -->
-  <div class="a" id="brand"><b>Marsh</b><div class="sep"></div><span>Energy Upstream Team</span></div>
+  <div class="a" id="brand"><span class="logo"><img class="logo-img" alt="Marsh"><b class="logo-fb">Marsh</b></span><div class="sep"></div><span>Energy Upstream Team</span></div>
   <div class="a mono" id="src">ANP · Boletim Mensal da Produção · Ago/2026</div>
   <div class="a mono" id="scene-idx">01 / 07</div>
   <div class="a" id="bar-track"><div id="bar-fill"></div></div>
@@ -256,13 +263,13 @@
   <div class="layer" id="s8">
     <div class="a" id="s8-q">Em uma indústria que segue avançando,<br><b>contar com o parceiro certo faz toda a diferença.</b></div>
     <div class="a" id="s8-rule"></div>
-    <div class="a" id="s8-logo"><div class="m">Marsh.</div><div class="t">Energy Upstream Team</div></div>
+    <div class="a" id="s8-logo"><div class="logo"><img class="logo-img" alt="Marsh"><div class="m logo-fb">Marsh.</div></div><div class="t">Energy Upstream Team</div></div>
     <div class="a" id="s8-src">Fonte: ANP — Boletim Mensal da Produção de Petróleo e Gás Natural. Totais de ago/2026 (dados preliminares); campos, instalações e operadoras de jul/2026 (consolidados).</div>
   </div>
 </div>
 
 <script>
-const DURATION = 30;
+const DURATION = 45;
 const $ = id => document.getElementById(id);
 const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 const lerp = (a, b, p) => a + (b - a) * p;
@@ -275,7 +282,7 @@ const fmt = (v, d) => v.toLocaleString('pt-BR', { minimumFractionDigits: d, maxi
 // Enter at `inAt`, leave at `outAt`. Moves up on enter, up on exit; optional blur.
 function show(id, t, inAt, outAt, o = {}) {
   const el = typeof id === 'string' ? $(id) : id;
-  const dIn = o.dIn ?? .7, dOut = o.dOut ?? .45, dy = o.dy ?? 40, dx = o.dx ?? 0;
+  const dIn = o.dIn ?? 1.0, dOut = o.dOut ?? .55, dy = o.dy ?? 40, dx = o.dx ?? 0;
   const pi = expoOut(prog(t, inAt, dIn));
   const po = outAt == null ? 0 : easeInOut(prog(t, outAt, dOut));
   const op = pi * (1 - po);
@@ -289,15 +296,16 @@ function show(id, t, inAt, outAt, o = {}) {
 }
 
 // Scene windows (seconds)
+// Scene windows (seconds). Cuts sit on bar lines of the soundtrack (1 bar = 2.25 s, see music.py).
 const S = [
-  [0.0, 3.3],   // 1 intro
-  [3.3, 8.3],   // 2 total
-  [8.3, 12.4],  // 3 oil + gas
-  [12.4, 16.6], // 4 pre-salt
-  [16.6, 21.0], // 5 fields & operators
-  [21.0, 24.5], // 6 complexity
-  [24.5, 27.0], // 7 marsh
-  [27.0, 30.0], // 8 end card
+  [0.0, 4.5],    // 1 intro
+  [4.5, 11.25],  // 2 total
+  [11.25, 18.0], // 3 oil + gas
+  [18.0, 24.75], // 4 pre-salt
+  [24.75, 31.5], // 5 fields & operators
+  [31.5, 36.0],  // 6 complexity
+  [36.0, 40.5],  // 7 marsh
+  [40.5, 45.0],  // 8 end card
 ];
 
 // ---------- background ----------
@@ -316,7 +324,7 @@ function drawBg(t) {
 
   // seismic strata lines, rising slowly (evokes layers down to the pre-salt)
   const lines = 26;
-  const endCard = clamp((t - 27) / 1.2);
+  const endCard = clamp((t - S[7][0]) / 1.2);
   for (let i = 0; i < lines; i++) {
     const base = 520 + i * 26 - t * 4;
     const a = (0.035 + 0.075 * (i / lines)) * (1 - endCard * .6);
@@ -334,7 +342,7 @@ function drawBg(t) {
   }
 
   // pre-salt highlight band during S4
-  const ps = clamp((t - 12.6) / 1) * (1 - clamp((t - 16.2) / .5));
+  const ps = clamp((t - S[3][0] - .2) / 1) * (1 - clamp((t - S[3][1] + .5) / .5));
   if (ps > 0) {
     const yb = 520 + 17 * 26 - t * 4;
     const band = cx.createLinearGradient(0, yb - 60, 0, yb + 140);
@@ -359,52 +367,52 @@ function render(t) {
   drawBg(t);
 
   // chrome
-  const chromeOut = 26.8;
+  const chromeOut = S[7][0] - .3;
   show('brand', t, .2, chromeOut, { dy: -16 });
   show('src', t, .35, chromeOut, { dy: -16 });
   show('scene-idx', t, .5, chromeOut, { dy: 10 });
   show('bar-track', t, .5, chromeOut, { dy: 0 });
-  $('bar-fill').style.width = (clamp(t / 27) * 100) + '%';
+  $('bar-fill').style.width = (clamp(t / S[7][0]) * 100) + '%';
   const idx = Math.min(7, Math.max(1, S.findIndex(([a, b]) => t >= a && t < b) + 1 || 8));
   $('scene-idx').textContent = String(Math.min(idx, 7)).padStart(2, '0') + ' / 07';
 
   // S1
   let [a, b] = S[0];
-  show('s1-over', t, a + .3, b - .45);
-  show('s1-h', t, a + .5, b - .45, { dy: 60, dIn: 1 });
-  $('s1-line').style.width = (easeOut(prog(t, a + 1.1, 1.1)) * 520) + 'px';
-  $('s1-line').style.opacity = 1 - prog(t, b - .45, .4);
-  show('s1-sub', t, a + 1.4, b - .45);
+  show('s1-over', t, a + 0.39, b - .55);
+  show('s1-h', t, a + 0.65, b - .55, { dy: 60, dIn: 1 });
+  $('s1-line').style.width = (easeOut(prog(t, a + 1.43, 1.1)) * 520) + 'px';
+  $('s1-line').style.opacity = 1 - prog(t, b - .55, .4);
+  show('s1-sub', t, a + 1.82, b - .55);
 
   // S2
   [a, b] = S[1];
-  show('s2-over', t, a, b - .45);
-  show('s2-num', t, a + .05, b - .45, { dy: 80, dIn: .9 });
-  const n = easeOut(prog(t, a + .05, 1.8));
+  show('s2-over', t, a, b - .55);
+  show('s2-num', t, a + 0.07, b - .55, { dy: 80, dIn: .9 });
+  const n = easeOut(prog(t, a + 0.07, 2.4));
   $('s2-num').textContent = fmt(lerp(4.0, 6.0, n), 2);
-  show('s2-unit', t, a + .4, b - .45, { dx: -30, dy: 0 });
-  show('s2-tag', t, a + 1.7, b - .45);
-  show('s2-c1', t, a + 2.3, b - .45, { dy: 30 });
-  show('s2-c2', t, a + 2.55, b - .45, { dy: 30 });
+  show('s2-unit', t, a + 0.52, b - .55, { dx: -30, dy: 0 });
+  show('s2-tag', t, a + 2.21, b - .55);
+  show('s2-c1', t, a + 2.99, b - .55, { dy: 30 });
+  show('s2-c2', t, a + 3.31, b - .55, { dy: 30 });
 
   // S3
   [a, b] = S[2];
-  show('s3-over', t, a, b - .45);
-  show('s3-k1', t, a + .15, b - .45, { dy: 60 });
-  show('s3-k2', t, a + .45, b - .45, { dy: 60 });
-  const o1 = easeOut(prog(t, a + .2, 1.5)), o2 = easeOut(prog(t, a + .5, 1.5));
+  show('s3-over', t, a, b - .55);
+  show('s3-k1', t, a + 0.20, b - .55, { dy: 60 });
+  show('s3-k2', t, a + 0.59, b - .55, { dy: 60 });
+  const o1 = easeOut(prog(t, a + 0.26, 1.5)), o2 = easeOut(prog(t, a + 0.65, 1.5));
   $('s3-v1').textContent = fmt(lerp(3.90, 4.613, o1), 2);
   $('s3-v2').textContent = fmt(lerp(188.9, 220.5, o2), 1);
   // bars: full width = 5.0 mi bbl/d and 250 mi m3/d
-  $('s3-g1').style.left = (3.896 / 5 * 100) + '%'; $('s3-g1').style.opacity = prog(t, a + 1.6, .4);
-  $('s3-f1').style.width = (easeOut(prog(t, a + .9, 1.3)) * 4.613 / 5 * 100) + '%';
-  $('s3-g2').style.left = (188.9 / 250 * 100) + '%'; $('s3-g2').style.opacity = prog(t, a + 1.9, .4);
-  $('s3-f2').style.width = (easeOut(prog(t, a + 1.2, 1.3)) * 220.5 / 250 * 100) + '%';
+  $('s3-g1').style.left = (3.896 / 5 * 100) + '%'; $('s3-g1').style.opacity = prog(t, a + 2.08, .4);
+  $('s3-f1').style.width = (easeOut(prog(t, a + 1.17, 1.3)) * 4.613 / 5 * 100) + '%';
+  $('s3-g2').style.left = (188.9 / 250 * 100) + '%'; $('s3-g2').style.opacity = prog(t, a + 2.47, .4);
+  $('s3-f2').style.width = (easeOut(prog(t, a + 1.56, 1.3)) * 220.5 / 250 * 100) + '%';
 
   // S4
   [a, b] = S[3];
-  const ringIn = show('s4-ring', t, a, b - .45, { dy: 0, scale: .9 });
-  const r = easeInOut(prog(t, a + .2, 1.8));
+  const ringIn = show('s4-ring', t, a, b - .55, { dy: 0, scale: .9 });
+  const r = easeInOut(prog(t, a + 0.26, 1.8));
   const pct = lerp(0, 82.64, r);
   const C = 2 * Math.PI * 280;
   $('s4-arc').setAttribute('stroke-dasharray', `${C * pct / 100} ${C}`);
@@ -412,53 +420,71 @@ function render(t) {
   $('s4-tick').setAttribute('cx', 320 + 280 * Math.cos(ang));
   $('s4-tick').setAttribute('cy', 320 + 280 * Math.sin(ang));
   $('s4-tick').setAttribute('r', r > 0 ? 9 : 0);
-  show('s4-pct', t, a + .2, b - .45, { dy: 20 });
+  show('s4-pct', t, a + 0.26, b - .55, { dy: 20 });
   $('s4-pct').innerHTML = fmt(pct, 1) + '<small>%</small>';
-  show('s4-ringlbl', t, a + .6, b - .45, { dy: 10 });
-  show('s4-over', t, a + .3, b - .45);
-  show('s4-h', t, a + .5, b - .45, { dy: 50 });
-  show('s4-stat', t, a + 1.3, b - .45);
+  show('s4-ringlbl', t, a + 0.78, b - .55, { dy: 10 });
+  show('s4-over', t, a + 0.39, b - .55);
+  show('s4-h', t, a + 0.65, b - .55, { dy: 50 });
+  show('s4-stat', t, a + 1.69, b - .55);
 
   // S5
   [a, b] = S[4];
-  show('s5-over', t, a, b - .45);
-  show('s5-h', t, a + .15, b - .45);
-  show('s5-r1', t, a + .5, b - .45, { dx: -40, dy: 0 });
-  show('s5-r2', t, a + .75, b - .45, { dx: -40, dy: 0 });
-  show('s5-r3', t, a + 1.0, b - .45, { dx: -40, dy: 0 });
-  $('s5-f1').style.width = (easeOut(prog(t, a + .7, 1.2)) * 24.7) + '%';
-  $('s5-f2').style.width = (easeOut(prog(t, a + .95, 1.2)) * 22.9) + '%';
-  $('s5-f3').style.width = (easeOut(prog(t, a + 1.2, 1.2)) * 5.9) + '%';
-  show('s5-op', t, a + 1.5, b - .45, { dy: 50 });
-  $('s5-opv').innerHTML = Math.round(lerp(0, 87, easeOut(prog(t, a + 1.5, 1.2)))) + '<small>%</small>';
-  show('s5-foot', t, a + 1.8, b - .45, { dy: 0 });
+  show('s5-over', t, a, b - .55);
+  show('s5-h', t, a + 0.20, b - .55);
+  show('s5-r1', t, a + 0.65, b - .55, { dx: -40, dy: 0 });
+  show('s5-r2', t, a + 0.98, b - .55, { dx: -40, dy: 0 });
+  show('s5-r3', t, a + 1.30, b - .55, { dx: -40, dy: 0 });
+  $('s5-f1').style.width = (easeOut(prog(t, a + 0.91, 1.2)) * 24.7) + '%';
+  $('s5-f2').style.width = (easeOut(prog(t, a + 1.23, 1.2)) * 22.9) + '%';
+  $('s5-f3').style.width = (easeOut(prog(t, a + 1.56, 1.2)) * 5.9) + '%';
+  show('s5-op', t, a + 1.95, b - .55, { dy: 50 });
+  $('s5-opv').innerHTML = Math.round(lerp(0, 87, easeOut(prog(t, a + 1.95, 1.2)))) + '<small>%</small>';
+  show('s5-foot', t, a + 2.34, b - .55, { dy: 0 });
 
   // S6
   [a, b] = S[5];
-  show('s6-h', t, a, b - .45, { dy: 60, dIn: .9 });
-  show('s6-p1', t, a + .8, b - .45);
-  show('s6-p2', t, a + 1.05, b - .45);
-  show('s6-p3', t, a + 1.3, b - .45);
+  show('s6-h', t, a, b - .55, { dy: 60, dIn: .9 });
+  show('s6-p1', t, a + 1.04, b - .55);
+  show('s6-p2', t, a + 1.37, b - .55);
+  show('s6-p3', t, a + 1.69, b - .55);
 
   // S7
   [a, b] = S[6];
-  show('s7-over', t, a, b - .4);
-  show('s7-h', t, a + .15, b - .4, { dy: 50 });
-  show('s7-a1', t, a + .8, b - .4, { dy: 20 });
-  show('s7-a2', t, a + 1.0, b - .4, { dy: 20 });
-  show('s7-a3', t, a + 1.2, b - .4, { dy: 20 });
+  show('s7-over', t, a, b - .55);
+  show('s7-h', t, a + 0.20, b - .55, { dy: 50 });
+  show('s7-a1', t, a + 1.04, b - .55, { dy: 20 });
+  show('s7-a2', t, a + 1.30, b - .55, { dy: 20 });
+  show('s7-a3', t, a + 1.56, b - .55, { dy: 20 });
 
   // S8
   [a, b] = S[7];
-  show('s8-q', t, a + .1, null, { dy: 30, dIn: 1 });
-  const ru = easeOut(prog(t, a + 1.0, .8));
+  show('s8-q', t, a + 0.13, null, { dy: 30, dIn: 1 });
+  const ru = easeOut(prog(t, a + 1.30, .8));
   $('s8-rule').style.transform = `scaleX(${ru})`;
-  show('s8-logo', t, a + 1.25, null, { dy: 30, dIn: 1.1, blur: 8 });
-  show('s8-src', t, a + 1.6, null, { dy: 0 });
+  show('s8-logo', t, a + 1.62, null, { dy: 30, dIn: 1.1, blur: 8 });
+  show('s8-src', t, a + 2.08, null, { dy: 0 });
 
   // final fade to black in the last 0.35s
-  document.getElementById('stage').style.opacity = 1 - prog(t, 29.65, .35);
+  document.getElementById('stage').style.opacity = 1 - prog(t, DURATION - .6, .6);
 }
+
+// Official logo lookup: a white (reversed) version is used as-is; a colour version is turned white.
+window.__logoReady = (async () => {
+  const candidates = [
+    ['assets/marsh-logo-white.svg', false], ['assets/marsh-logo-white.png', false],
+    ['assets/marsh-logo.svg', true], ['assets/marsh-logo.png', true],
+  ];
+  for (const [src, color] of candidates) {
+    const ok = await new Promise(res => { const im = new Image(); im.onload = () => res(true); im.onerror = () => res(false); im.src = src; });
+    if (!ok) continue;
+    document.querySelectorAll('.logo-img').forEach(el => { el.src = src; });
+    await Promise.all([...document.querySelectorAll('.logo-img')].map(el => el.decode().catch(() => {})));
+    document.body.classList.add('has-logo');
+    if (color) document.body.classList.add('logo-color');
+    return src;
+  }
+  return null;
+})();
 
 window.render = render;
 window.DURATION = DURATION;
