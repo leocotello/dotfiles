@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Marsh Energy Upstream</title>
+<link href="fonts/fonts.css" rel="stylesheet">
+<style>
+  :root {
+    --navy-0: #000f26;
+    --navy-1: #001a40;
+    --navy-2: #002c77;
+    --blue: #0086d6;
+    --cyan: #3cc4f5;
+    --ice: #cfe9ff;
+    --white: #ffffff;
+    --mute: rgba(255,255,255,.62);
+    --faint: rgba(255,255,255,.28);
+    --gold: #f2b544;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--navy-0); }
+  body { font-family: 'Inter', sans-serif; color: var(--white); -webkit-font-smoothing: antialiased; }
+  #stage { position: absolute; inset: 0; overflow: hidden; }
+  canvas#bg { position: absolute; inset: 0; }
+  .layer { position: absolute; inset: 0; }
+  .a { position: absolute; will-change: transform, opacity; opacity: 0; }
+  .mono { font-family: 'IBM Plex Mono', monospace; letter-spacing: .08em; text-transform: uppercase; }
+  .over { font-size: 22px; color: var(--cyan); font-weight: 500; }
+  .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+
+  /* Chrome */
+  #brand { left: 96px; top: 64px; display: flex; align-items: center; gap: 18px; font-size: 22px; }
+  #brand b { font-weight: 700; letter-spacing: -.01em; font-size: 28px; }
+  #brand .sep { width: 1px; height: 26px; background: var(--faint); }
+  #brand span { color: var(--mute); font-weight: 400; letter-spacing: .02em; }
+  #src { right: 96px; top: 70px; font-size: 16px; color: var(--mute); }
+  #scene-idx { left: 96px; bottom: 60px; font-size: 16px; color: var(--mute); }
+  #bar-track { left: 260px; right: 96px; bottom: 67px; height: 2px; background: rgba(255,255,255,.12); }
+  #bar-fill { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, var(--blue), var(--cyan)); width: 0; }
+  .foot { left: 96px; bottom: 100px; font-size: 15px; color: var(--faint); }
+
+  /* S1 */
+  #s1-over { left: 96px; top: 340px; }
+  #s1-h { left: 96px; top: 390px; font-size: 104px; line-height: 1.02; font-weight: 300; letter-spacing: -.035em; width: 1500px; }
+  #s1-h b { font-weight: 700; }
+  #s1-line { left: 96px; top: 640px; height: 3px; width: 0; background: linear-gradient(90deg, var(--cyan), transparent); opacity: 1; }
+  #s1-sub { left: 96px; top: 675px; font-size: 30px; color: var(--mute); font-weight: 300; }
+
+  /* S2 */
+  #s2-over { left: 96px; top: 250px; }
+  #s2-num { left: 80px; top: 300px; font-size: 340px; font-weight: 700; letter-spacing: -.06em; line-height: 1; }
+  #s2-unit { left: 800px; top: 380px; font-size: 64px; font-weight: 300; line-height: 1.1; letter-spacing: -.02em; }
+  #s2-unit small { display: block; font-size: 28px; color: var(--mute); margin-top: 10px; letter-spacing: 0; }
+  #s2-tag { left: 96px; top: 700px; font-size: 36px; font-weight: 500; }
+  #s2-tag em { font-style: normal; color: var(--gold); }
+  .chip { display: inline-flex; align-items: baseline; gap: 14px; padding: 18px 26px; border: 1px solid rgba(60,196,245,.45); border-radius: 4px; background: rgba(0,134,214,.10); font-size: 22px; color: var(--mute); }
+  .chip strong { font-size: 40px; color: var(--white); font-weight: 600; letter-spacing: -.02em; }
+  #s2-c1 { left: 96px; top: 790px; }
+  #s2-c2 { left: 460px; top: 790px; }
+
+  /* S3 */
+  #s3-over { left: 96px; top: 230px; }
+  .kpi { width: 780px; }
+  .kpi .lbl { font-size: 30px; color: var(--mute); font-weight: 400; margin-bottom: 8px; }
+  .kpi .val { font-size: 170px; font-weight: 700; letter-spacing: -.05em; line-height: 1; }
+  .kpi .u { font-size: 30px; font-weight: 300; color: var(--ice); margin-top: 12px; }
+  .kpi .track { position: relative; margin-top: 44px; height: 14px; background: rgba(255,255,255,.08); }
+  .kpi .ghost { position: absolute; left: 0; top: -10px; bottom: -10px; width: 3px; background: #fff; z-index: 2; opacity: 0; }
+  .kpi .fill { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, var(--blue), var(--cyan)); }
+  .kpi .leg { display: flex; justify-content: space-between; margin-top: 16px; font-size: 20px; color: var(--mute); }
+  .kpi .leg b { color: var(--cyan); font-weight: 600; }
+  #s3-k1 { left: 96px; top: 300px; }
+  #s3-k2 { left: 1040px; top: 300px; }
+
+  /* S4 */
+  #s4-ring { left: 150px; top: 230px; width: 640px; height: 640px; opacity: 1; }
+  #s4-pct { left: 150px; top: 440px; width: 640px; text-align: center; font-size: 150px; font-weight: 700; letter-spacing: -.05em; line-height: 1; }
+  #s4-pct small { font-size: 70px; font-weight: 400; }
+  #s4-ringlbl { left: 150px; top: 610px; width: 640px; text-align: center; font-size: 22px; color: var(--mute); }
+  #s4-over { left: 930px; top: 290px; }
+  #s4-h { left: 930px; top: 340px; font-size: 76px; line-height: 1.05; font-weight: 300; letter-spacing: -.03em; width: 900px; }
+  #s4-h b { font-weight: 700; }
+  #s4-stat { left: 930px; top: 600px; display: flex; gap: 70px; }
+  #s4-stat .s { border-left: 2px solid var(--cyan); padding-left: 22px; }
+  #s4-stat .s b { display: block; font-size: 56px; font-weight: 600; letter-spacing: -.03em; }
+  #s4-stat .s span { font-size: 21px; color: var(--mute); }
+
+  /* S5 */
+  #s5-over { left: 96px; top: 200px; }
+  #s5-h { left: 96px; top: 245px; font-size: 64px; font-weight: 300; letter-spacing: -.03em; }
+  #s5-h b { font-weight: 700; }
+  .row { left: 96px; width: 1060px; }
+  .row .top { display: flex; justify-content: space-between; align-items: baseline; }
+  .row .nm { font-size: 34px; font-weight: 600; letter-spacing: -.01em; }
+  .row .nm small { font-size: 21px; font-weight: 400; color: var(--mute); margin-left: 14px; letter-spacing: 0; }
+  .row .v { font-size: 38px; font-weight: 600; letter-spacing: -.02em; }
+  .row .v small { font-size: 20px; color: var(--mute); font-weight: 400; margin-left: 8px; }
+  .row .tr { position: relative; height: 6px; margin-top: 14px; background: rgba(255,255,255,.08); }
+  .row .sh { font-size: 18px; color: var(--mute); margin-top: 10px; }
+  .row .f { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, var(--blue), var(--cyan)); }
+  #s5-r1 { top: 395px; } #s5-r2 { top: 525px; } #s5-r3 { top: 655px; }
+  #s5-op { left: 1300px; top: 380px; width: 520px; }
+  #s5-op .lbl { font-size: 22px; color: var(--mute); }
+  #s5-op .big { font-size: 170px; font-weight: 700; letter-spacing: -.05em; line-height: 1; margin-top: 10px; }
+  #s5-op .big small { font-size: 80px; font-weight: 400; }
+  #s5-op .txt { font-size: 26px; font-weight: 400; line-height: 1.35; color: var(--ice); margin-top: 12px; }
+  #s5-op .note { margin-top: 26px; padding-top: 20px; border-top: 1px solid var(--faint); font-size: 22px; line-height: 1.4; color: var(--mute); }
+  #s5-op .note b { color: var(--white); font-weight: 600; }
+
+  /* S6 */
+  #s6-h { left: 96px; top: 250px; font-size: 104px; line-height: 1.02; font-weight: 300; letter-spacing: -.04em; }
+  #s6-h b { font-weight: 700; color: var(--cyan); }
+  .pill { top: 580px; width: 540px; border-top: 2px solid var(--cyan); padding-top: 26px; }
+  .pill .n { font-size: 18px; color: var(--cyan); }
+  .pill h3 { font-size: 40px; font-weight: 600; letter-spacing: -.02em; margin: 12px 0 14px; }
+  .pill p { font-size: 23px; line-height: 1.45; color: var(--mute); font-weight: 400; }
+  #s6-p1 { left: 96px; } #s6-p2 { left: 690px; } #s6-p3 { left: 1284px; }
+
+  /* S7 */
+  #s7-over { left: 96px; top: 300px; }
+  #s7-h { left: 96px; top: 350px; font-size: 72px; line-height: 1.12; font-weight: 300; letter-spacing: -.03em; width: 1760px; }
+  #s7-h b { font-weight: 700; }
+  #s7-attrs { left: 96px; top: 580px; display: flex; gap: 0; }
+  .attr { font-size: 34px; font-weight: 500; padding: 0 44px; border-left: 1px solid var(--faint); opacity: 0; }
+  .attr:first-child { padding-left: 0; border-left: 0; }
+  .attr i { font-style: normal; color: var(--cyan); margin-right: 14px; }
+
+  /* S8 */
+  #s8-q { left: 0; width: 1920px; top: 330px; text-align: center; font-size: 62px; line-height: 1.2; font-weight: 300; letter-spacing: -.025em; }
+  #s8-q b { font-weight: 600; }
+  #s8-rule { left: 910px; top: 560px; width: 100px; height: 2px; background: var(--cyan); opacity: 1; transform-origin: center; }
+  #s8-logo { left: 0; width: 1920px; top: 610px; text-align: center; }
+  #s8-logo .m { font-size: 150px; font-weight: 700; letter-spacing: -.045em; line-height: 1; }
+  #s8-logo .t { font-size: 34px; font-weight: 400; letter-spacing: .32em; text-transform: uppercase; color: var(--ice); margin-top: 22px; }
+  #s8-src { left: 0; width: 1920px; bottom: 60px; text-align: center; font-size: 15px; color: var(--faint); }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="bg" width="1920" height="1080"></canvas>
+
+  <!-- persistent chrome -->
+  <div class="a" id="brand"><b>Marsh</b><div class="sep"></div><span>Energy Upstream Team</span></div>
+  <div class="a mono" id="src">ANP · Boletim Mensal da Produção · Ago/2026</div>
+  <div class="a mono" id="scene-idx">01 / 07</div>
+  <div class="a" id="bar-track"><div id="bar-fill"></div></div>
+
+  <!-- S1 -->
+  <div class="layer" id="s1">
+    <div class="a mono over" id="s1-over">Boletim Mensal da Produção de Petróleo e Gás Natural · ANP</div>
+    <div class="a" id="s1-h">O Brasil atinge um<br><b>novo patamar</b> em óleo e gás.</div>
+    <div class="a" id="s1-line"></div>
+    <div class="a" id="s1-sub">Os números de agosto de 2026.</div>
+  </div>
+
+  <!-- S2 -->
+  <div class="layer" id="s2">
+    <div class="a mono over" id="s2-over">Produção total · petróleo + gás natural</div>
+    <div class="a num" id="s2-num">6,00</div>
+    <div class="a" id="s2-unit">milhões de boe/d<small>barris de óleo equivalente por dia</small></div>
+    <div class="a" id="s2-tag">Marca histórica: <em>pela primeira vez acima de 6 milhões de boe/d.</em></div>
+    <div class="a chip" id="s2-c1"><strong class="num">+2,6%</strong> vs. julho/2026</div>
+    <div class="a chip" id="s2-c2"><strong class="num">+18,0%</strong> vs. agosto/2025</div>
+  </div>
+
+  <!-- S3 -->
+  <div class="layer" id="s3">
+    <div class="a mono over" id="s3-over">Crescimento em petróleo e em gás</div>
+    <div class="a kpi" id="s3-k1">
+      <div class="lbl">Petróleo</div>
+      <div class="val num" id="s3-v1">4,61</div>
+      <div class="u">milhões de barris por dia</div>
+      <div class="track"><div class="ghost" id="s3-g1"></div><div class="fill" id="s3-f1"></div></div>
+      <div class="leg"><span>▏ Ago/25: 3,90 mi bbl/d</span><b>+18,4% em 12 meses</b></div>
+    </div>
+    <div class="a kpi" id="s3-k2">
+      <div class="lbl">Gás natural</div>
+      <div class="val num" id="s3-v2">220,5</div>
+      <div class="u">milhões de m³ por dia</div>
+      <div class="track"><div class="ghost" id="s3-g2"></div><div class="fill" id="s3-f2"></div></div>
+      <div class="leg"><span>▏ Ago/25: 188,9 mi m³/d</span><b>+16,7% em 12 meses</b></div>
+    </div>
+  </div>
+
+  <!-- S4 -->
+  <div class="layer" id="s4">
+    <svg class="a" id="s4-ring" viewBox="0 0 640 640">
+      <defs>
+        <linearGradient id="rg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#3cc4f5"/><stop offset="1" stop-color="#0086d6"/>
+        </linearGradient>
+      </defs>
+      <circle cx="320" cy="320" r="280" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="34"/>
+      <circle id="s4-arc" cx="320" cy="320" r="280" fill="none" stroke="url(#rg)" stroke-width="34"
+              stroke-dasharray="0 1759.3" transform="rotate(-90 320 320)"/>
+      <circle id="s4-tick" cx="320" cy="320" r="3" fill="#fff"/>
+    </svg>
+    <div class="a num" id="s4-pct">82,6<small>%</small></div>
+    <div class="a mono" id="s4-ringlbl">da produção nacional</div>
+    <div class="a mono over" id="s4-over">Pré-sal</div>
+    <div class="a" id="s4-h">O pré-sal <b>sustenta<br>e acelera</b> a expansão.</div>
+    <div class="a" id="s4-stat">
+      <div class="s"><b class="num">4,96 mi</b><span>boe/d no pré-sal</span></div>
+      <div class="s"><b class="num">79,4% → 82,6%</b><span>participação ago/25 → ago/26</span></div>
+    </div>
+  </div>
+
+  <!-- S5 -->
+  <div class="layer" id="s5">
+    <div class="a mono over" id="s5-over">Campos, instalações e operadoras</div>
+    <div class="a" id="s5-h">Onde o crescimento <b>se concentra</b>.</div>
+    <div class="a row" id="s5-r1">
+      <div class="top"><div class="nm">Búzios<small>maior produtor de petróleo · Bacia de Santos</small></div><div class="v num">1,11 mi<small>bbl/d</small></div></div>
+      <div class="tr"><div class="f" id="s5-f1"></div></div>
+      <div class="sh">24,7% do petróleo nacional</div>
+    </div>
+    <div class="a row" id="s5-r2">
+      <div class="top"><div class="nm">Mero<small>maior produtor de gás natural · Bacia de Santos</small></div><div class="v num">49,1 mi<small>m³/d</small></div></div>
+      <div class="tr"><div class="f" id="s5-f2"></div></div>
+      <div class="sh">22,9% do gás natural nacional</div>
+    </div>
+    <div class="a row" id="s5-r3">
+      <div class="top"><div class="nm">FPSO Almirante Tamandaré<small>maior instalação em petróleo · Búzios</small></div><div class="v num">263 mil<small>bbl/d</small></div></div>
+      <div class="tr"><div class="f" id="s5-f3"></div></div>
+      <div class="sh">5,9% do petróleo nacional em uma única unidade</div>
+    </div>
+    <div class="a" id="s5-op">
+      <div class="lbl mono">Operação</div>
+      <div class="big num" id="s5-opv">87<small>%</small></div>
+      <div class="txt">da produção vem de campos operados pela Petrobras, sozinha ou em consórcio.</div>
+      <div class="note">Demais operadoras ampliam presença:<br><b>9,9% → 12,7%</b> da produção entre ago/25 e jul/26.</div>
+    </div>
+    <div class="a foot" id="s5-foot">Campos, instalações e operadoras: último boletim consolidado da ANP (jul/2026).</div>
+  </div>
+
+  <!-- S6 -->
+  <div class="layer" id="s6">
+    <div class="a" id="s6-h">Mais produção.<br><b>Mais complexidade.</b></div>
+    <div class="a pill" id="s6-p1"><div class="n mono">01</div><h3>Operacional</h3><p>FPSOs de grande porte, sistemas submarinos e operações em águas ultraprofundas.</p></div>
+    <div class="a pill" id="s6-p2"><div class="n mono">02</div><h3>Contratual</h3><p>Consórcios, afretamentos, EPCI e uma cadeia de fornecedores cada vez mais extensa.</p></div>
+    <div class="a pill" id="s6-p3"><div class="n mono">03</div><h3>Exposição a riscos</h3><p>Ativos de alto valor, responsabilidades ampliadas e impacto de interrupções na produção.</p></div>
+  </div>
+
+  <!-- S7 -->
+  <div class="layer" id="s7">
+    <div class="a mono over" id="s7-over">Marsh · Energy Upstream Team</div>
+    <div class="a" id="s7-h">Estratégia, segurança e <b>profundo conhecimento</b><br>do mercado upstream brasileiro.</div>
+    <div class="a" id="s7-attrs" style="opacity:1">
+      <div class="attr" id="s7-a1"><i>—</i>Conhecimento técnico</div>
+      <div class="attr" id="s7-a2"><i>—</i>Visão de mercado</div>
+      <div class="attr" id="s7-a3"><i>—</i>Soluções especializadas</div>
+    </div>
+  </div>
+
+  <!-- S8 -->
+  <div class="layer" id="s8">
+    <div class="a" id="s8-q">Em uma indústria que segue avançando,<br><b>contar com o parceiro certo faz toda a diferença.</b></div>
+    <div class="a" id="s8-rule"></div>
+    <div class="a" id="s8-logo"><div class="m">Marsh.</div><div class="t">Energy Upstream Team</div></div>
+    <div class="a" id="s8-src">Fonte: ANP — Boletim Mensal da Produção de Petróleo e Gás Natural. Totais de ago/2026 (dados preliminares); campos, instalações e operadoras de jul/2026 (consolidados).</div>
+  </div>
+</div>
+
+<script>
+const DURATION = 30;
+const $ = id => document.getElementById(id);
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, p) => a + (b - a) * p;
+const easeOut = p => 1 - Math.pow(1 - p, 3);
+const easeInOut = p => p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+const expoOut = p => p === 1 ? 1 : 1 - Math.pow(2, -10 * p);
+const prog = (t, start, dur) => clamp((t - start) / dur);
+const fmt = (v, d) => v.toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
+
+// Enter at `inAt`, leave at `outAt`. Moves up on enter, up on exit; optional blur.
+function show(id, t, inAt, outAt, o = {}) {
+  const el = typeof id === 'string' ? $(id) : id;
+  const dIn = o.dIn ?? .7, dOut = o.dOut ?? .45, dy = o.dy ?? 40, dx = o.dx ?? 0;
+  const pi = expoOut(prog(t, inAt, dIn));
+  const po = outAt == null ? 0 : easeInOut(prog(t, outAt, dOut));
+  const op = pi * (1 - po);
+  const y = (1 - pi) * dy - po * (o.outDy ?? 24);
+  const x = (1 - pi) * dx;
+  const s = o.scale ? lerp(o.scale, 1, pi) : 1;
+  el.style.opacity = op;
+  el.style.transform = `translate(${x}px, ${y}px) scale(${s})`;
+  el.style.filter = o.blur ? `blur(${(1 - pi) * o.blur + po * o.blur}px)` : '';
+  return pi;
+}
+
+// Scene windows (seconds)
+const S = [
+  [0.0, 3.3],   // 1 intro
+  [3.3, 8.3],   // 2 total
+  [8.3, 12.4],  // 3 oil + gas
+  [12.4, 16.6], // 4 pre-salt
+  [16.6, 21.0], // 5 fields & operators
+  [21.0, 24.5], // 6 complexity
+  [24.5, 27.0], // 7 marsh
+  [27.0, 30.0], // 8 end card
+];
+
+// ---------- background ----------
+const cv = $('bg'), cx = cv.getContext('2d');
+function drawBg(t) {
+  const W = 1920, H = 1080;
+  const g = cx.createLinearGradient(0, 0, W, H);
+  g.addColorStop(0, '#001633'); g.addColorStop(.55, '#001a40'); g.addColorStop(1, '#000c20');
+  cx.fillStyle = g; cx.fillRect(0, 0, W, H);
+
+  // drifting glow
+  const gx = 1400 + Math.sin(t * .21) * 260, gy = 380 + Math.cos(t * .17) * 160;
+  const rg = cx.createRadialGradient(gx, gy, 0, gx, gy, 900);
+  rg.addColorStop(0, 'rgba(0,134,214,0.28)'); rg.addColorStop(1, 'rgba(0,134,214,0)');
+  cx.fillStyle = rg; cx.fillRect(0, 0, W, H);
+
+  // seismic strata lines, rising slowly (evokes layers down to the pre-salt)
+  const lines = 26;
+  const endCard = clamp((t - 27) / 1.2);
+  for (let i = 0; i < lines; i++) {
+    const base = 520 + i * 26 - t * 4;
+    const a = (0.035 + 0.075 * (i / lines)) * (1 - endCard * .6);
+    cx.beginPath();
+    for (let x = -20; x <= W + 20; x += 16) {
+      const y = base
+        + Math.sin(x * 0.0021 + i * 0.55 + t * 0.35) * (18 + i * 1.6)
+        + Math.sin(x * 0.0063 - i * 0.3 + t * 0.2) * 6;
+      x === -20 ? cx.moveTo(x, y) : cx.lineTo(x, y);
+    }
+    const salt = i === 17;
+    cx.strokeStyle = salt ? `rgba(60,196,245,${0.34 * (1 - endCard)})` : `rgba(140,200,255,${a})`;
+    cx.lineWidth = salt ? 1.6 : 1;
+    cx.stroke();
+  }
+
+  // pre-salt highlight band during S4
+  const ps = clamp((t - 12.6) / 1) * (1 - clamp((t - 16.2) / .5));
+  if (ps > 0) {
+    const yb = 520 + 17 * 26 - t * 4;
+    const band = cx.createLinearGradient(0, yb - 60, 0, yb + 140);
+    band.addColorStop(0, 'rgba(60,196,245,0)');
+    band.addColorStop(.35, `rgba(60,196,245,${0.10 * ps})`);
+    band.addColorStop(1, 'rgba(60,196,245,0)');
+    cx.fillStyle = band; cx.fillRect(0, yb - 60, W, 200);
+  }
+
+  // fine grid dots
+  cx.fillStyle = 'rgba(255,255,255,0.05)';
+  for (let x = 96; x < W; x += 96) for (let y = 96; y < 480; y += 96) cx.fillRect(x, y, 2, 2);
+
+  // vignette
+  const v = cx.createRadialGradient(W / 2, H / 2, 400, W / 2, H / 2, 1250);
+  v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,5,15,0.55)');
+  cx.fillStyle = v; cx.fillRect(0, 0, W, H);
+}
+
+// ---------- render ----------
+function render(t) {
+  drawBg(t);
+
+  // chrome
+  const chromeOut = 26.8;
+  show('brand', t, .2, chromeOut, { dy: -16 });
+  show('src', t, .35, chromeOut, { dy: -16 });
+  show('scene-idx', t, .5, chromeOut, { dy: 10 });
+  show('bar-track', t, .5, chromeOut, { dy: 0 });
+  $('bar-fill').style.width = (clamp(t / 27) * 100) + '%';
+  const idx = Math.min(7, Math.max(1, S.findIndex(([a, b]) => t >= a && t < b) + 1 || 8));
+  $('scene-idx').textContent = String(Math.min(idx, 7)).padStart(2, '0') + ' / 07';
+
+  // S1
+  let [a, b] = S[0];
+  show('s1-over', t, a + .3, b - .45);
+  show('s1-h', t, a + .5, b - .45, { dy: 60, dIn: 1 });
+  $('s1-line').style.width = (easeOut(prog(t, a + 1.1, 1.1)) * 520) + 'px';
+  $('s1-line').style.opacity = 1 - prog(t, b - .45, .4);
+  show('s1-sub', t, a + 1.4, b - .45);
+
+  // S2
+  [a, b] = S[1];
+  show('s2-over', t, a, b - .45);
+  show('s2-num', t, a + .05, b - .45, { dy: 80, dIn: .9 });
+  const n = easeOut(prog(t, a + .05, 1.8));
+  $('s2-num').textContent = fmt(lerp(4.0, 6.0, n), 2);
+  show('s2-unit', t, a + .4, b - .45, { dx: -30, dy: 0 });
+  show('s2-tag', t, a + 1.7, b - .45);
+  show('s2-c1', t, a + 2.3, b - .45, { dy: 30 });
+  show('s2-c2', t, a + 2.55, b - .45, { dy: 30 });
+
+  // S3
+  [a, b] = S[2];
+  show('s3-over', t, a, b - .45);
+  show('s3-k1', t, a + .15, b - .45, { dy: 60 });
+  show('s3-k2', t, a + .45, b - .45, { dy: 60 });
+  const o1 = easeOut(prog(t, a + .2, 1.5)), o2 = easeOut(prog(t, a + .5, 1.5));
+  $('s3-v1').textContent = fmt(lerp(3.90, 4.613, o1), 2);
+  $('s3-v2').textContent = fmt(lerp(188.9, 220.5, o2), 1);
+  // bars: full width = 5.0 mi bbl/d and 250 mi m3/d
+  $('s3-g1').style.left = (3.896 / 5 * 100) + '%'; $('s3-g1').style.opacity = prog(t, a + 1.6, .4);
+  $('s3-f1').style.width = (easeOut(prog(t, a + .9, 1.3)) * 4.613 / 5 * 100) + '%';
+  $('s3-g2').style.left = (188.9 / 250 * 100) + '%'; $('s3-g2').style.opacity = prog(t, a + 1.9, .4);
+  $('s3-f2').style.width = (easeOut(prog(t, a + 1.2, 1.3)) * 220.5 / 250 * 100) + '%';
+
+  // S4
+  [a, b] = S[3];
+  const ringIn = show('s4-ring', t, a, b - .45, { dy: 0, scale: .9 });
+  const r = easeInOut(prog(t, a + .2, 1.8));
+  const pct = lerp(0, 82.64, r);
+  const C = 2 * Math.PI * 280;
+  $('s4-arc').setAttribute('stroke-dasharray', `${C * pct / 100} ${C}`);
+  const ang = (pct / 100) * 2 * Math.PI - Math.PI / 2;
+  $('s4-tick').setAttribute('cx', 320 + 280 * Math.cos(ang));
+  $('s4-tick').setAttribute('cy', 320 + 280 * Math.sin(ang));
+  $('s4-tick').setAttribute('r', r > 0 ? 9 : 0);
+  show('s4-pct', t, a + .2, b - .45, { dy: 20 });
+  $('s4-pct').innerHTML = fmt(pct, 1) + '<small>%</small>';
+  show('s4-ringlbl', t, a + .6, b - .45, { dy: 10 });
+  show('s4-over', t, a + .3, b - .45);
+  show('s4-h', t, a + .5, b - .45, { dy: 50 });
+  show('s4-stat', t, a + 1.3, b - .45);
+
+  // S5
+  [a, b] = S[4];
+  show('s5-over', t, a, b - .45);
+  show('s5-h', t, a + .15, b - .45);
+  show('s5-r1', t, a + .5, b - .45, { dx: -40, dy: 0 });
+  show('s5-r2', t, a + .75, b - .45, { dx: -40, dy: 0 });
+  show('s5-r3', t, a + 1.0, b - .45, { dx: -40, dy: 0 });
+  $('s5-f1').style.width = (easeOut(prog(t, a + .7, 1.2)) * 24.7) + '%';
+  $('s5-f2').style.width = (easeOut(prog(t, a + .95, 1.2)) * 22.9) + '%';
+  $('s5-f3').style.width = (easeOut(prog(t, a + 1.2, 1.2)) * 5.9) + '%';
+  show('s5-op', t, a + 1.5, b - .45, { dy: 50 });
+  $('s5-opv').innerHTML = Math.round(lerp(0, 87, easeOut(prog(t, a + 1.5, 1.2)))) + '<small>%</small>';
+  show('s5-foot', t, a + 1.8, b - .45, { dy: 0 });
+
+  // S6
+  [a, b] = S[5];
+  show('s6-h', t, a, b - .45, { dy: 60, dIn: .9 });
+  show('s6-p1', t, a + .8, b - .45);
+  show('s6-p2', t, a + 1.05, b - .45);
+  show('s6-p3', t, a + 1.3, b - .45);
+
+  // S7
+  [a, b] = S[6];
+  show('s7-over', t, a, b - .4);
+  show('s7-h', t, a + .15, b - .4, { dy: 50 });
+  show('s7-a1', t, a + .8, b - .4, { dy: 20 });
+  show('s7-a2', t, a + 1.0, b - .4, { dy: 20 });
+  show('s7-a3', t, a + 1.2, b - .4, { dy: 20 });
+
+  // S8
+  [a, b] = S[7];
+  show('s8-q', t, a + .1, null, { dy: 30, dIn: 1 });
+  const ru = easeOut(prog(t, a + 1.0, .8));
+  $('s8-rule').style.transform = `scaleX(${ru})`;
+  show('s8-logo', t, a + 1.25, null, { dy: 30, dIn: 1.1, blur: 8 });
+  show('s8-src', t, a + 1.6, null, { dy: 0 });
+
+  // final fade to black in the last 0.35s
+  document.getElementById('stage').style.opacity = 1 - prog(t, 29.65, .35);
+}
+
+window.render = render;
+window.DURATION = DURATION;
+// Preview mode: play in real time when opened directly in a browser.
+if (!window.__RENDERING__) {
+  const t0 = performance.now();
+  const loop = () => { render(((performance.now() - t0) / 1000) % DURATION); requestAnimationFrame(loop); };
+  document.fonts.ready.then(() => requestAnimationFrame(loop));
+}
+</script>
+</body>
+</html>
