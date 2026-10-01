@@ -3,7 +3,7 @@
 import { SAVE_VERSION } from './state.js';
 import { INSTITUTIONS, TECHS, DISTRICTS, WORKS, DISCOVERIES } from '../data/content.js';
 
-const TRANSIENT = ['_econ', '_engage', '_battles', '_outcomes', '_tick'];
+const TRANSIENT = ['_econ', '_engage', '_battles', '_outcomes', '_tick', '_sc'];
 export function serialize(S) {
   const copy = JSON.parse(JSON.stringify(S, (k, v) => (TRANSIENT.includes(k) ? undefined : v)));
   return JSON.stringify({ schema: SAVE_VERSION, game: 'stotkal', savedAt: Date.now(), turn: S.turn, seed: S.seed, state: copy });

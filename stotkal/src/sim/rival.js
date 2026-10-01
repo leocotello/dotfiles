@@ -18,7 +18,8 @@ function techPriority(S, civ) {
   const f = FACTIONS[civ.faction]; const want = []; const visit = (t) => { if (civ.techs[t] || want.includes(t)) return; for (const p of TECHS[t].pre) visit(p); want.push(t); };
   const amb = civ.ambition ? civ.ambition.id : f.ambition; for (const t of AMBITIONS[amb].techs) visit(t);
   for (const t of ['cultivation', 'conduit_repair', 'fortification', 'testimony', 'cartography', 'body_restoration']) visit(t);
-  return want.filter(t => !civ.techs[t] && TECHS[t].pre.every(p => civ.techs[p]));
+  const rest = Object.keys(TECHS).sort((a, b) => TECHS[a].age - TECHS[b].age).filter(t => !want.includes(t));
+  return [...want, ...rest].filter(t => !civ.techs[t] && TECHS[t].pre.every(p => civ.techs[p]));
 }
 
 export function planRivals(S) {
@@ -38,12 +39,12 @@ function planOne(S, civ, opts = {}) {
   // free settings
   civ.research.alloc = civ.res.mem >= 14 ? 4 : civ.res.mem >= 6 ? 2 : 1;
   if (econ.deficit > 0 && civ.res.sus < 3) civ.emergency = 'ration'; else if (civ.emergency === 'ration' && civ.res.sus > 8) civ.emergency = null;
-  if (T >= 16 && T <= 21 && !civ.ambition) stage(S, id, { type: 'ambition', id: opts.ambition || f.ambition });
+  if (T >= 16 && T <= 21 && !civ.ambition) stage(S, id, { type: 'ambition', amb: opts.ambition || f.ambition });
   // council
   if (isCouncilTurn(T)) {
-    const ids = drawOffers(S, civ); let best = null, bu = -1;
-    for (const oid of ids) { const o = OPPORTUNITIES[oid]; const cost = offerCost(S, civ, o); if (!canPay(available(S, id), cost)) continue; let u = 20 + (W[o.cat] || 0) * 5; if (o.cat === 'preparation' && T >= 12) u += 20; if (o.cat === 'cohesion' && cities.some(c => c.coh < 60)) u += 15; u *= jit(S, id, oid); if (u > bu) { bu = u; best = oid; } }
-    if (best) { S.council.rivalOffers = S.council.rivalOffers || {}; S.council.rivalOffers[id] = offerView(S, civ, best); const saved = S.council.offers, st = S.council.turn; S.council.offers = [offerView(S, civ, best)]; S.council.turn = T; const r = stage(S, id, { type: 'council', offer: best }); S.council.offers = saved; S.council.turn = st; if (r.ok) S.aiLog.push({ turn: T, civ: id, why: 'council: ' + best }); }
+    const ids = civ.human ? (S.council.offers || []).map(o => o.id) : drawOffers(S, civ); let best = null, bu = -1;
+    for (const oid of ids) { if (!OPPORTUNITIES[oid]) continue; const o = OPPORTUNITIES[oid]; const cost = offerCost(S, civ, o); if (!canPay(available(S, id), cost)) continue; let u = 20 + (W[o.cat] || 0) * 5; if (o.cat === 'preparation' && T >= 12) u += 20; if (o.cat === 'cohesion' && cities.some(c => c.coh < 60)) u += 15; u *= jit(S, id, oid); if (u > bu) { bu = u; best = oid; } }
+    if (best) { const r = stage(S, id, { type: 'council', offer: best, view: civ.human ? undefined : offerView(S, civ, best) }); if (r.ok) S.aiLog.push({ turn: T, civ: id, why: 'council: ' + best }); else S.aiLog.push({ turn: T, civ: id, error: 'council stage failed: ' + r.error }); }
   }
   // ---- discoveries ----
   for (const [sid, d] of Object.entries(civ.disc)) {
@@ -88,6 +89,27 @@ function planOne(S, civ, opts = {}) {
   const claim = claimTarget(S, civ, amb); if (claim) add(32 * (W.expand || 1) + claim.s * 4, { type: 'claim', q: claim.t.q, r: claim.t.r }, 'claim tile (score ' + claim.s + ')');
   if (cities.length < (T < 12 ? 3 : 4) && T >= 2) { const site = citySite(S, civ); if (site && site.claim) add(66 * (W.expand || 1), { type: 'claim', q: site.claim.q, r: site.claim.r }, 'claim a bridge tile toward a city site'); else if (site) add(74 * (W.expand || 1), { type: 'city', q: site.t.q, r: site.t.r, source: site.src.id }, 'found a city at ' + TERR(site.t)); }
   if (hasInst(civ, 'voluntary_network') === false && amb === 'shared' && cities.length >= 2 && civ.inst.some(x => !x)) add(66, { type: 'reform', kind: 'install_baseline', slot: civ.inst.findIndex(x => !x) }, 'ambition: voluntary network');
+  // connectivity: claim bridging tiles so that every city shares territory with the capital (supply, networks, Shared Continuity)
+  if (cities.length > 1 && S.cities[civ.cap]) {
+    const capReach = reachableFrom(S, id, S.cities[civ.cap]); const lost = cities.filter(c => !capReach.has(key(c.q, c.r)));
+    for (const far of lost.slice(0, 1)) {
+      const prev = new Map([[key(far.q, far.r), null]]); const q = [key(far.q, far.r)]; let end = null;
+      while (q.length && !end) { const k = q.shift(); const [a, b] = k.split(',').map(Number); for (const n of neighbors(a, b)) { const nk = key(n.q, n.r); const t = S.map.tiles[nk]; if (!t || prev.has(nk) || !TERRAIN_PASS(t) || (t.owner && t.owner !== id && t.owner !== null)) continue; prev.set(nk, k); if (capReach.has(nk)) { end = nk; break; } q.push(nk); } }
+      if (end) { let k = prev.get(end); const path = []; while (k) { path.push(k); k = prev.get(k); } const cand = path.map(k => S.map.tiles[k]).filter(t => !t.owner && !validate(S, id, { type: 'claim', q: t.q, r: t.r }))[0]; const cand2 = (end && !S.map.tiles[end].owner) ? null : null; if (cand) add(68, { type: 'claim', q: cand.q, r: cand.r }, 'claim a bridging tile to reconnect ' + far.name); }
+    }
+  }
+  // outposts: reach anomaly sites and the Meridian Spire without conquest (Break the Recurrence)
+  if (amb === 'break') {
+    for (const st of Object.values(S.sites)) {
+      if (!civ.seen[key(st.q, st.r)]) continue;
+      if (st.type === 'anomaly' && !st.invest[id] && !validate(S, id, { type: 'investigate', site: st.id }) === false) { /* investigate handled above */ }
+      if (st.type === 'anomaly' && !st.invest[id] && validate(S, id, { type: 'investigate', site: st.id })) {
+        const spot = neighbors(st.q, st.r).map(n => S.map.tiles[key(n.q, n.r)]).filter(t => t && !validate(S, id, { type: 'outpost', q: t.q, r: t.r })).sort((a, b) => dist(a, nearestOwn(S, civ, a) || a) - dist(b, nearestOwn(S, civ, b) || b))[0];
+        if (spot) add(62, { type: 'outpost', q: spot.q, r: spot.r }, 'outpost beside ' + st.name + ' to investigate it without conquest');
+      }
+      if (st.type === 'meridian_spire') { const sp = S.map.tiles[key(st.q, st.r)]; if (sp.owner !== id && !validate(S, id, { type: 'outpost', q: st.q, r: st.r })) add(58, { type: 'outpost', q: st.q, r: st.r }, 'secure access to the Meridian Spire'); }
+    }
+  }
   // influence independent settlements (peaceful routes)
   for (const c of Object.values(S.cities)) if (c.ind && !c.notice && civ.seen[key(c.q, c.r)] && cities.length < CFG.maxCities && dist(c, nearestOwn(S, civ, c) || c) <= 6) add(46 * (f.weights.sanctuary > 1 || W.expand > 1 ? 1.2 : 0.9), { type: 'influence', city: c.id }, 'peaceful integration of ' + c.name);
   // ---- reconcile ----
@@ -97,13 +119,14 @@ function planOne(S, civ, opts = {}) {
   // ---- diplomacy & war ----
   diplomacy(S, civ, add, econ, amb);
   // ---- military ----
-  military(S, civ, add, econ);
+  military(S, civ, add, econ, amb);
   // pick top feasible (distinct categories not required; stage handles caps and reservations)
   cands.sort((a, b) => b.u - a.u);
   for (const c of cands) { if (ordersLeft(S, id) <= 0) break; if (c.u < 20) break; const r = stage(S, id, c.cmd); if (r.ok) S.aiLog.push({ turn: T, civ: id, u: Math.round(c.u), cmd: c.cmd.type + (c.cmd.kind ? ':' + c.cmd.kind : ''), why: c.why }); }
 }
 const TERR = (t) => t.t;
 function ambTag(amb, tag) { return ({ embodied: ['embodied', 'restore', 'protective'], shared: ['network', 'collective', 'voluntary'], record: ['record', 'testimony'], break: ['protective', 'testimony'] }[amb] || []).includes(tag); }
+const TERRAIN_PASS = (t) => t.t !== 'lake';
 function nearestOwn(S, civ, pos) { let b = null, bd = 99; for (const c of civCities(S, civ.id)) { const d = dist(c, pos); if (d < bd) { bd = d; b = c; } } return b; }
 
 function surveyTarget(S, civ) {
@@ -130,7 +153,7 @@ function citySite(S, civ) {
   const srcs = civCities(S, civ.id).filter(c => c.pop >= 4).sort((a, b) => b.pop - a.pop); if (!srcs.length) return null; const src = srcs[0];
   let best = null, bestClaim = null;
   for (const t of Object.values(S.map.tiles)) {
-    if (!civ.obs[key(t.q, t.r)]) continue;
+    if (!civ.seen[key(t.q, t.r)]) continue;
     const err = validate(S, civ.id, { type: 'city', q: t.q, r: t.r, source: src.id });
     const s = siteScore(S, t);
     if (!err) { if (!best || s > best.s || (s === best.s && key(t.q, t.r) < key(best.t.q, best.t.r))) best = { t, s, src }; continue; }
@@ -159,18 +182,33 @@ function diplomacy(S, civ, add, econ, amb) {
     if (!has('shutdown') && hasTech(civ, 'cycle_interruption') && amb === 'break' && civResonance(S, other) > 0) add(70, { type: 'treaty', to: other, kind: 'shutdown' }, 'mutually beneficial Resonance shutdown (Break the Recurrence)');
     // war: opportunistic and philosophical
     const aggressive = (f.weights.war || 0.6) * (rel < -12 ? 1.4 : 0.6);
-    if (T >= 8 && pw >= 1.6 && rel < -12 && !S.treaties.some(t => t.active && t.kind === 'nonaggression' && (t.a === other || t.b === other) && (t.a === id || t.b === id)) && aggressive > 0.55 && civArmies(S, id).length) add(52 * aggressive, { type: 'demand', to: other, kind: 'war', why: `${O.name} is weak and relations are poor (${rel})` }, 'exploit advantage');
-    if (T >= 7 && pw >= 1.6 && rel < 5 && !war) add(26, { type: 'demand', to: other, kind: 'tribute', why: 'tribute from a weaker neighbour' }, 'tribute demand');
+    const pact = S.treaties.some(t => t.active && t.kind === 'nonaggression' && ((t.a === other && t.b === id) || (t.a === id && t.b === other)));
+    const wantWar = T >= 8 && pw >= 1.6 && rel < -12 && aggressive > 0.55 && civArmies(S, id).length;
+    if (wantWar && (!pact || (pw >= 2.2 && rel < -18 && T >= 12))) add(52 * aggressive, { type: 'demand', to: other, kind: 'war', why: `${O.name} is weak and relations are poor (${rel})${pact ? '; the non-aggression pact is no longer worth keeping' : ''}` }, pact ? 'break pact to exploit advantage' : 'exploit advantage');
+    const dk = id + '>' + other + ':tribute'; S.aiMem = S.aiMem || {}; const pending = S.proposals.some(p => p.from === id && p.to === other && p.kind === 'tribute');
+    if (T >= 7 && pw >= 1.6 && rel < 5 && !war && !pending && T - (S.aiMem[dk] ?? -99) >= 8) { add(26, { type: 'demand', to: other, kind: 'tribute', why: `tribute from a weaker neighbour (power ${power(S, id)} vs ${power(S, other)})` }, 'tribute demand'); }
   }
 }
 
-function military(S, civ, add, econ) {
+function military(S, civ, add, econ, amb) {
   const id = civ.id; const f = FACTIONS[civ.faction]; const T = S.turn; const cities = civCities(S, id); const armies = civArmies(S, id);
   const wars = Object.keys(S.wars).filter(k => k.split('|').includes(id)); const regs = armies.reduce((a, x) => a + x.regs.length, 0);
   const cap = S.cities[civ.cap]; if (!cap) return;
   const threatened = Object.values(S.armies).some(a => a.owner !== id && atWar(S, a.owner, id) && dist(a, cap) <= 5);
   const want = Math.min(6, 1 + Math.floor(T / 6) + (wars.length ? 2 : 0) + Math.round((f.weights.war || 0.5) * 2));
   if (regs < want && T >= 4) { const role = regs % 3 === 0 ? 'warden' : regs % 3 === 1 ? 'lancer' : 'disruptor'; add(wars.length || threatened ? 70 : 20 + 16 * (f.weights.war || 0.5) - regs * 4, { type: 'recruit', city: cap.id, role }, threatened ? 'defence' : 'garrison'); }
+  // scouts: reach anomaly sites and the Spire by army (sight + adjacency), never by conquest
+  if (amb === 'break') {
+    const idle = armies.filter(a => a.obj.type === 'guard' && !a.regs.some(r => r.ready > S.turn) && !(a.q === cap.q && a.r === cap.r && armies.length === 1 && wars.length));
+    const targets = Object.values(S.sites).filter(st => st.type === 'anomaly' && civ.seen[key(st.q, st.r)] && !st.invest[id] && validate(S, id, { type: 'investigate', site: st.id }));
+    for (const a of idle) {
+      let tgt = null;
+      for (const st of targets) { const spot = neighbors(st.q, st.r).map(n => S.map.tiles[key(n.q, n.r)]).filter(t => t && civ.seen[key(t.q, t.r)] && !validate(S, id, { type: 'objective', army: a.id, obj: 'travel', q: t.q, r: t.r })).sort((p, q2) => dist(p, a) - dist(q2, a))[0]; if (spot && (!tgt || dist(spot, a) < dist(tgt, a))) tgt = spot; }
+      if (!tgt) { const unseen = Object.values(S.map.tiles).some(t => !civ.seen[key(t.q, t.r)]); if (unseen) { const frontier = Object.values(S.map.tiles).filter(t => civ.seen[key(t.q, t.r)] && !validate(S, id, { type: 'objective', army: a.id, obj: 'travel', q: t.q, r: t.r }) && dist(t, { q: 0, r: 0 }) <= 2).sort((p, q2) => dist(p, { q: 0, r: 0 }) - dist(q2, { q: 0, r: 0 }))[0]; if (frontier && dist(frontier, a) > 0) tgt = frontier; } }
+      if (tgt) add(63, { type: 'objective', army: a.id, obj: 'travel', q: tgt.q, r: tgt.r }, 'scout toward ' + (targets.length ? 'an anomaly site' : 'the unexplored centre'));
+    }
+    if (!armies.length && T >= 5 && T <= 20) add(60, { type: 'recruit', city: cap.id, role: 'lancer' }, 'recruit a scout');
+  }
   for (const a of armies) {
     if (a.regs.some(r => r.ready > S.turn)) continue; const str = a.regs.reduce((s, r) => s + r.str, 0);
     if (a.obj.type !== 'guard') continue;

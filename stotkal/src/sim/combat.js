@@ -35,11 +35,9 @@ export function sidePower(S, armies, tile, mode, approachOf) {
   }
   return { power: p, parts };
 }
-const supCache = { turn: -1, maps: {} };
-function isSuppliedCached(S, a) {
-  const k = S.turn + ':' + S.seed;
-  if (supCache.k !== k || supCache.tick !== S._tick) { supCache.k = k; supCache.tick = S._tick; supCache.maps = {}; }
-  const m = supCache.maps[a.owner] || (supCache.maps[a.owner] = supplyMap(S, a.owner));
+function isSuppliedCached(S, a) { // per-state transient cache (never module-global, never serialised)
+  if (!S._sc || S._sc.tick !== (S._tick || 0)) S._sc = { tick: S._tick || 0, maps: {} };
+  const m = S._sc.maps[a.owner] || (S._sc.maps[a.owner] = supplyMap(S, a.owner));
   return isSupplied(S, a.owner, a.q, a.r, m);
 }
 export function invalidateSupplyCache(S) { S._tick = (S._tick || 0) + 1; }

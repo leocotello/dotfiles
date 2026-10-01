@@ -125,14 +125,14 @@ export function updateVision(S) {
     for (const [aid, lk] of Object.entries(civ.lastKnown)) { if (!S.armies[aid]) delete civ.lastKnown[aid]; else if (civ.obs[key(lk.q, lk.r)] && (S.armies[aid].q !== lk.q || S.armies[aid].r !== lk.r)) delete civ.lastKnown[aid]; }
   }
 }
-export function revealRange(S, civ, center, range) { // survey: BFS from an observed tile, not crossing impassable terrain
+export function revealRange(S, civ, center, range, dry = false) { // survey: BFS from an observed tile, not crossing impassable terrain
   const seen = new Set([key(center.q, center.r)]); let frontier = [center]; let n = 0;
-  civ.seen[key(center.q, center.r)] = 1;
+  if (!dry) civ.seen[key(center.q, center.r)] = 1;
   for (let step = 0; step < range; step++) {
     const next = [];
     for (const f of frontier) for (const nb of neighbors(f.q, f.r)) {
       const k = key(nb.q, nb.r); const t = S.map.tiles[k]; if (!t || seen.has(k)) continue; seen.add(k);
-      if (!civ.seen[k]) n++; civ.seen[k] = 1;
+      if (!civ.seen[k]) n++; if (!dry) civ.seen[k] = 1;
       if (t.t !== 'lake') next.push(nb);
     }
     frontier = next;

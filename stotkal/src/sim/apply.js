@@ -47,7 +47,6 @@ export function installInstitution(S, civ, instId, slot, siteId) {
   S.chronicle.push({ turn: S.turn, civ: civ.id, text: `${civ.id === 'you' ? 'You' : civ.name} chose "${I.name}" at ${siteId ? S.sites[siteId].name : 'home'}.`, tag: 'institution', inst: instId });
 }
 
-let nameIdx = 0;
 export function applyCmd(S, civId, cmd) {
   const civ = S.civs[civId]; const err = validate(S, civId, cmd);
   const who = civId === 'you' ? '' : `${civ.name}: `;
@@ -71,7 +70,7 @@ const APPLY = {
   outpost(S, civ, c, cost) { pay(civ, cost); const t = tileAt(S, c.q, c.r); if (!t.owner) t.owner = civ.id; t.outpost = civ.id; return { ok: true, msg: `Outpost raised on ${TERRAIN[t.t].name}.` }; },
   city(S, civ, c, cost) {
     pay(civ, cost); const src = S.cities[c.source]; src.pop -= 2;
-    const nm = NAMES.city.filter(n => !Object.values(S.cities).some(x => x.name === n)); const city = makeCity(S, civ.id, c.q, c.r, { name: nm[(S.nextId + nameIdx++) % nm.length] || 'New Settlement' });
+    const nm = NAMES.city.filter(n => !Object.values(S.cities).some(x => x.name === n)); const city = makeCity(S, civ.id, c.q, c.r, { name: nm[((S.flags.nameIdx = (S.flags.nameIdx || 0) + 1) + S.nextId) % nm.length] || 'New Settlement' });
     const t = tileAt(S, c.q, c.r); if (t.outpost) t.outpost = null;
     city.pop = 2; city.coh = CFG.colony.coh - CFG.colony.integrationPenalty;
     return { ok: true, msg: `Founded ${city.name} (population 2 from ${src.name}); it is integrating (-10 Coherence).`, city };
@@ -114,7 +113,7 @@ const APPLY = {
   demand(S, civ, c) {
     const to = S.civs[c.to];
     if (c.kind === 'war') { declareWar(S, civ.id, c.to, c.why); return { ok: true, msg: `War declared on ${to.name}.` }; }
-    if (to.human) { S.proposals.push({ id: nid(S, 'p'), from: civ.id, to: c.to, kind: c.kind === 'tribute' ? 'tribute' : 'peace', turn: S.turn, expires: S.turn + 2, why: c.why }); return { ok: true, msg: `${civ.name} made a demand of ${to.name}.` }; }
+    if (to.human) { S.aiMem = S.aiMem || {}; S.aiMem[civ.id + '>' + c.to + ':tribute'] = S.turn; S.proposals.push({ id: nid(S, 'p'), from: civ.id, to: c.to, kind: c.kind === 'tribute' ? 'tribute' : 'peace', turn: S.turn, expires: S.turn + 2, why: c.why }); return { ok: true, msg: `${civ.name} made a demand of ${to.name}.` }; }
     if (c.kind === 'peace') { const rel = relation(S, c.to, civ.id).score; const weary = S.turn - S.wars[pairKey(civ.id, c.to)] >= 4; if (rel > -45 || weary) { makePeace(S, civ.id, c.to); return { ok: true, msg: `${to.name} agreed to peace.` }; } return { ok: true, msg: `${to.name} refused peace.` }; }
     const ratio = power(S, civ.id) / Math.max(1, power(S, c.to));
     if (ratio >= 1.6 && to.res.mat >= 4) { to.res.mat -= 4; to.res.ene = Math.max(0, to.res.ene - 4); civ.res.mat += 4; civ.res.ene += 4; relMemAdd(S, c.to, civ.id, -8); return { ok: true, msg: `${to.name} paid tribute (4 Matter, 4 Energy) under pressure.` }; }
@@ -132,14 +131,14 @@ const APPLY = {
     if (c.kind === 'research') { civ.research.target = c.tech; return { ok: true, msg: `Research program: ${TECHS[c.tech].name} (progress kept: ${civ.research.progress[c.tech] || 0}).` }; }
     if (c.kind === 'reconcile') { pay(civ, cost); const city = S.cities[c.city]; city.reconcile = { left: CFG.coherence.reconcileTurns }; return { ok: true, msg: `Reconciliation begun in ${city.name} (completes in ${CFG.coherence.reconcileTurns} turns, +${CFG.coherence.reconcileGain} Coherence).` }; }
     if (c.kind === 'restore') { pay(civ, cost); civ.restoreCd = S.turn; const integ = fx(S, civ, 'restoreFast') > 0 ? CFG.restore.integFast : CFG.restore.integ; const r = addPopulation(S, civ, 2, integ, 'rename'); return { ok: true, msg: `Restoration: +${r.added} population (integration -${integ} Coherence).` }; }
-    if (c.kind === 'ambition_change') { pay(civ, cost); civ.ambition = { id: c.id, turn: S.turn }; civ.ambitionChanged = true; return { ok: true, msg: `Ambition changed to ${AMBITIONS[c.id].name}. Investments in shared research and projects remain.` }; }
+    if (c.kind === 'ambition_change') { pay(civ, cost); civ.ambition = { id: c.amb, turn: S.turn }; civ.ambitionChanged = true; return { ok: true, msg: `Ambition changed to ${AMBITIONS[c.amb].name}. Investments in shared research and projects remain.` }; }
   },
   council(S, civ, c, cost) {
-    const o = S.council.offers.find(x => x.id === c.offer); pay(civ, cost);
-    const src = o.id === FB.id ? FB : OPPORTUNITIES[o.id]; applyOffer(S, civ, src); S.council.chosen = o.id; S.council.pickedLog.push({ turn: S.turn, id: o.id });
+    const o = civ.human ? S.council.offers.find(x => x.id === c.offer) : c.view; pay(civ, cost);
+    const src = o.id === FB.id ? FB : OPPORTUNITIES[o.id]; applyOffer(S, civ, src); if (civ.human) S.council.chosen = o.id; S.council.pickedLog.push({ turn: S.turn, id: o.id, civ: civ.id });
     return { ok: true, msg: `Council: ${o.title}.` };
   },
-  ambition(S, civ, c) { civ.ambition = { id: c.id, turn: S.turn }; return { ok: true, msg: `Ambition committed: ${AMBITIONS[c.id].name}.` }; },
+  ambition(S, civ, c) { civ.ambition = { id: c.amb, turn: S.turn }; return { ok: true, msg: `Ambition committed: ${AMBITIONS[c.amb].name}.` }; },
   respond(S, civ, c) {
     const p = S.proposals.find(x => x.id === c.proposal); S.proposals = S.proposals.filter(x => x.id !== c.proposal);
     if (!c.accept) { relMemAdd(S, p.from, civ.id, -1); return { ok: true, msg: `You declined ${S.civs[p.from].name}'s ${p.kind}.` }; }

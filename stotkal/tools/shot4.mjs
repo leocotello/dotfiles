@@ -1,0 +1,20 @@
+import { launch } from './shot.mjs';
+const { browser, page, errors } = await launch(1440, 900);
+await page.goto('http://localhost:8765/?seed=demo&auto=1'); await page.waitForTimeout(700);
+const ff = async (n) => page.evaluate(async (n) => { const a = window.__stotkal; const R = await import('/src/sim/rival.js'); const E = await import('/src/sim/resolve.js'); while (!a.S.over && a.S.turn < n) { R.planAs(a.S, 'you', 'veil', 'embodied'); E.endTurn(a.S); } a.ui.modal = null; a.ui.queue = []; a.ui.guideOff = true; const c = a.S.cities[a.S.civs.you.cap]; document.querySelector('#top'); return a.S.turn; }, n);
+const refresh = async () => page.evaluate(() => { const a = window.__stotkal; window.dispatchEvent(new Event('resize')); });
+// discovery modal early: open nearest choir engine
+await page.evaluate(() => { const a = window.__stotkal; const s = Object.values(a.S.sites).find(s => s.type === 'choir_engine'); a.S.civs.you.seen[s.q + ',' + s.r] = 1; });
+await ff(2);
+const site = await page.evaluate(() => { const a = window.__stotkal; const s = Object.values(a.S.sites).find(s => s.type === 'choir_engine'); const c = a.S.civs.you; c.seen[s.q + ',' + s.r] = 1; return s.id; });
+await page.evaluate(async (id) => { const a = window.__stotkal; const S = await import('/src/sim/state.js'); S.syncDiscoveries(a.S); a.ui.modal = { type: 'discovery', site: id }; document.dispatchEvent(new MouseEvent('click')); }, site);
+await page.evaluate(() => { const b = document.querySelector('[data-act="sheet"]'); b && b.click(); });
+await page.waitForTimeout(400); await page.screenshot({ path: 'screenshots/07-discovery.png' });
+await ff(14); await page.evaluate(() => { const a = window.__stotkal; const c = a.S.cities[a.S.civs.you.cap]; a.ui.sel = { q: c.q, r: c.r }; a.ui.sheet = 'context'; a.ui.modal = null; }); await page.keyboard.press('Home'); await page.waitForTimeout(100);
+await page.evaluate(() => document.querySelector('[data-act="sheet"][data-s="empire"]').click()); await page.waitForTimeout(300);
+await page.screenshot({ path: 'screenshots/08-empire-t14.png' });
+await page.evaluate(() => document.querySelector('[data-act="sheet"][data-s="quiet"]').click()); await page.waitForTimeout(300); await page.screenshot({ path: 'screenshots/09-quieting.png' });
+await page.evaluate(() => document.querySelector('[data-act="sheet"][data-s="diplo"]').click()); await page.waitForTimeout(300); await page.screenshot({ path: 'screenshots/10-diplomacy.png' });
+await page.evaluate(() => document.querySelector('[data-act="sheet"][data-s="ambition"]').click()); await page.waitForTimeout(300); await page.screenshot({ path: 'screenshots/11-ambition.png' });
+console.log('turn', await page.evaluate(() => window.__stotkal.S.turn));
+console.log(errors.join('\n') || 'no errors'); await browser.close();

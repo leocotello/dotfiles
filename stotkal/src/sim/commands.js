@@ -143,7 +143,7 @@ const VALIDATE = {
   },
   city(S, civ, c) {
     const t = tileAt(S, c.q, c.r); if (!t) return 'No such tile.'; if (!TERRAIN[t.t].passable) return 'Cannot settle water.';
-    if (t.city) return 'Occupied.'; if (t.site) return 'A discovery site occupies this tile.'; if (!observed(civ, c.q, c.r)) return 'Needs a currently observed tile.';
+    if (t.city) return 'Occupied.'; if (t.site) return 'A discovery site occupies this tile.'; if (!seenTile(civ, c.q, c.r)) return 'Survey or explore this tile first.';
     if (t.owner && t.owner !== civ.id) return 'Foreign territory.';
     if (civCities(S, civ.id).length >= CFG.maxCities) return 'City cap reached (5).';
     for (const o of Object.values(S.cities)) if (dist(o, c) < CFG.citySpacing) return `Too close to ${o.name} (needs ${CFG.citySpacing}+ hexes).`;
@@ -195,6 +195,7 @@ const VALIDATE = {
   },
   demand(S, civ, c) {
     const o = S.civs[c.to]; if (!o || o.eliminated) return 'No such civilization.';
+    if (c.kind === 'war' && S.treaties.some(t => t.active && t.kind === 'nonaggression' && ((t.a === civ.id && t.b === c.to) || (t.b === civ.id && t.a === c.to))) && fx(S, o, 'verifiedTreaties') > 0) return `${o.name}'s treaties are verified (Testimony + Consult the Ancestors): the non-aggression pact cannot be broken before it expires.`;
     if (!['tribute', 'war', 'peace'].includes(c.kind)) return 'Unknown demand.';
     if (c.kind === 'peace' && !atWar(S, civ.id, c.to)) return 'Not at war.'; if (c.kind !== 'peace' && atWar(S, civ.id, c.to)) return 'Already at war.';
     if (!civCities(S, c.to).some(ct => civ.seen[key(ct.q, ct.r)])) return 'You have not met them.'; return null;
@@ -218,15 +219,15 @@ const VALIDATE = {
       if (!hasInst(civ, 'voices')) return 'Requires Release the Voices.'; if (S.turn - civ.restoreCd < restoreEvery(S, civ)) return `Restoration needs ${restoreEvery(S, civ) - (S.turn - civ.restoreCd)} more turn(s) to recover.`;
       if (!civCities(S, civ.id).some(x => x.pop < cityHousing(S, civ, x))) return 'No city has room.'; return null;
     }
-    if (c.kind === 'ambition_change') { if (!civ.ambition) return 'No ambition committed.'; if (civ.ambitionChanged) return 'Already changed once.'; if (S.turn > 23) return 'Too late to change (through turn 23).'; if (!AMBITIONS[c.id] || c.id === civ.ambition.id) return 'Choose a different ambition.'; return null; }
+    if (c.kind === 'ambition_change') { if (!civ.ambition) return 'No ambition committed.'; if (civ.ambitionChanged) return 'Already changed once.'; if (S.turn > 23) return 'Too late to change (through turn 23).'; if (!AMBITIONS[c.amb] || c.amb === civ.ambition.id) return 'Choose a different ambition.'; return null; }
     return 'Unknown reform.';
   },
   council(S, civ, c) {
     const cs = S.council; if (!cs.offers || cs.turn !== S.turn) return 'No council session this turn.';
-    const o = cs.offers.find(x => x.id === c.offer); if (!o) return 'No such offer.'; return null;
+    const o = civ.human ? cs.offers.find(x => x.id === c.offer) : c.view; if (!o || o.id !== c.offer) return 'No such offer.'; return null;
   },
   ambition(S, civ, c) {
-    if (S.turn < 16 || S.turn > 21) return 'Ambitions are committed between turns 16 and 21.'; if (civ.ambition) return 'Already committed.'; if (!AMBITIONS[c.id]) return 'Unknown ambition.'; return null;
+    if (S.turn < 16 || S.turn > 21) return 'Ambitions are committed between turns 16 and 21.'; if (civ.ambition) return 'Already committed.'; if (!AMBITIONS[c.amb]) return 'Unknown ambition.'; return null;
   },
   respond(S, civ, c) { const p = S.proposals.find(p => p.id === c.proposal && p.to === civ.id); return p ? null : 'No such proposal.'; },
   answer(S, civ, c) { const city = myCity(S, civ, c.city); return city && city.request ? null : 'No request to answer.'; },
@@ -251,7 +252,7 @@ const COST = {
     if (c.kind === 'ambition_change') return { ...zero(), ...CFG.cost.ambitionChange };
     return zero();
   },
-  council(S, civ, c) { const o = S.council.offers.find(x => x.id === c.offer); return offerCost(S, civ, o); },
+  council(S, civ, c) { const o = civ.human ? S.council.offers.find(x => x.id === c.offer) : c.view; return { ...zero(), ...o.cost }; },
 };
 
 export function setEmergency(S, civId, mode) { S.civs[civId].emergency = mode || null; }
