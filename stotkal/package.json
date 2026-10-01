@@ -1,0 +1,13 @@
+{
+  "name": "stotkal-what-remains",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "STOTKAL: WHAT REMAINS - a single-player civilization roguelite (playable vertical slice).",
+  "scripts": {
+    "start": "node tools/serve.js",
+    "test": "node --test tests/*.test.js",
+    "simulate": "node tools/simulate.js",
+    "screenshots": "node tools/screenshots.js"
+  }
+}

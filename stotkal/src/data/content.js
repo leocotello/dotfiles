@@ -1,0 +1,369 @@
+// All game content & balance numbers. Editable data with stable identifiers. Validated by validate.js at startup.
+// Every number here is an *initial balancing hypothesis*. Rendering code contains no balance numbers.
+
+export const CFG = {
+  turns: 30,
+  orders: 3,
+  radius: 5,
+  ageBounds: [10, 20, 30],
+  ageNames: ['Awakening', 'Becoming', 'Reckoning'],
+  councilTurns: [3, 6, 9, 12, 15, 18, 21, 24, 27],
+  start: { pop: 4, housing: 6, coh: 70, res: { sus: 16, mat: 14, ene: 12, mem: 6 } },
+  capProd: { sus: 5, mat: 3, ene: 3, mem: 2 },
+  colProd: { sus: 3, mat: 2, ene: 2, mem: 1 },
+  colony: { pop: 2, housing: 4, coh: 60, integrationPenalty: 10, integrationTurns: 3, recoverBelow: 60, recoverStep: 2 },
+  cost: {
+    claim: { mat: 2 }, outpost: { mat: 6, ene: 2 }, city: { mat: 12, sus: 6, ene: 4 },
+    recruit: { mat: 6, ene: 4 }, reconcile: { mat: 3, ene: 1 }, investigate: { ene: 3 },
+    rebuildDistrict: { mat: 4 }, ambitionChange: { mem: 4, mat: 4 },
+  },
+  maxCities: 5, citySpacing: 3, capitalSlots: 4, citySlots: 3,
+  popUpkeepSus: 1, cityMaintEne: 1, newCityUpkeepEne: 2, wideExtraEne: 1, wideFrom: 4,
+  growth: { interval: 3, surplus: 2, minCoh: 50 },
+  coherence: { normal: 50, low: 30, lowCut: 0.15, critCut: 0.30, crisisTurns: 2, shortagePenalty: 6, sanctCap: 80, reconcileGain: 12, reconcileTurns: 2 },
+  rationing: { susCut: 0.25, cohCost: 3 },
+  regimentUpkeepEne: 1, outpostUpkeepEne: 1,
+  army: { maxArmies: 3, maxRegs: 3, move: 2, supplyRange: 3, unsuppliedMult: 0.8, heal: 2, retreatDefault: 0.4 },
+  research: { allocOptions: [1, 2, 4], defaultAlloc: 2, cost: [8, 12, 18] },
+  salvage: { mem: 3, mat: 4 },
+  projectMinTurns: 1, cancelRefund: 0.5,
+  quieting: {
+    firstForecast: 12, revealTurn: 18, escalations: [22, 26, 30],
+    thresholds: [30, 60], interruptThreshold: 40, stabCost: { mat: 12, ene: 8 }, stabTurns: 3, stabRemoves: 10,
+    crisisCooldown: 3, regions: 7,
+  },
+  restore: { everyBase: 5, everyFast: 3, integ: 8, integFast: 4, cost: { mat: 6, ene: 4 } },
+  raid: { cooldown: 4, cap: 3 },
+  influence: { need: 3, noticeTurns: 2, commit: { sus: 4 } },
+  treaty: { duration: { trade: 10, nonaggression: 8, research: 6, passage: 8, preservation: 10, shutdown: 6 }, breakRep: 10, breakCoh: 8 },
+  petitionsPerAge: 1,
+};
+
+export const TERRAIN = {
+  desert: { name: 'Mineral Desert', move: 1, passable: true, yield: { mat: 1 }, open: true, color: '#d9cdb4', blurb: 'Open mineral flats. Lancers ride well; little grows.' },
+  garden: { name: 'Fertile Garden', move: 1, passable: true, yield: { sus: 1 }, open: true, color: '#b7c99a', blurb: 'Soft vegetation beside quiet machinery. Feeds bodies.' },
+  lake: { name: 'Reflective Lake', move: 99, passable: false, yield: { mem: 1 }, color: '#2a3550', blurb: 'Dark water that remembers faces. Impassable.' },
+  coast: { name: 'Coast', move: 1, passable: true, yield: { ene: 1 }, open: true, color: '#c9d4de', blurb: 'Tidal shelf. Harbors, trade and the Silent Fleet.' },
+  ridge: { name: 'Glass Ridge', move: 2, passable: true, yield: { mat: 1 }, sight: 1, def: 0.2, color: '#9fb4c8', blurb: 'Fused glass spines. Rough, high, defensible.' },
+  infra: { name: 'Buried Infrastructure', move: 1, passable: true, yield: { ene: 1, mem: 1 }, color: '#bcb6c7', blurb: 'Active conduits beneath the sand. Source tile for Conduits.' },
+};
+
+export const RESOURCES = {
+  sus: { name: 'Sustenance', short: 'Sus', icon: '❀', blurb: 'Feeds embodied life; drives growth.' },
+  mat: { name: 'Matter', short: 'Mat', icon: '◆', blurb: 'Builds structures, bodies and infrastructure.' },
+  ene: { name: 'Energy', short: 'Ene', icon: '⚡', blurb: 'Powers maintenance, travel, archives and armies.' },
+  mem: { name: 'Memory', short: 'Mem', icon: '◈', blurb: 'Usable informational material: research and institutional work. Named fragments are NOT Memory.' },
+};
+
+export const DISTRICTS = {
+  garden: { name: 'Garden', icon: 'G', cost: { mat: 8 }, turns: 2, out: { sus: 3 }, blurb: '+3 Sustenance (+1 per fertile tile you hold, max +2).', tag: 'embodied' },
+  foundry: { name: 'Foundry', icon: 'F', cost: { mat: 10 }, turns: 3, out: { mat: 3 }, upkeep: { ene: 1 }, resonance: 1, powered: true, blurb: '+3 Matter, -1 Energy. Adds 1 Resonance per operating turn.', tag: 'industry' },
+  reservoir: { name: 'Reservoir', icon: 'R', cost: { mat: 8 }, turns: 2, housing: 4, blurb: '+4 housing; absorbs one shortage-related Coherence penalty.', tag: 'embodied' },
+  archive: { name: 'Archive', icon: 'A', cost: { mat: 8 }, turns: 2, out: { mem: 2 }, upkeep: { ene: 1 }, powered: true, blurb: '+2 Memory, -1 Energy. Holds named fragments.', tag: 'record' },
+  conduit: { name: 'Conduit', icon: 'C', cost: { mat: 8 }, turns: 2, out: { ene: 4 }, needsInfra: true, blurb: '+4 Energy. Needs a buried-infrastructure source tile you hold.', tag: 'network' },
+  sanctuary: { name: 'Sanctuary', icon: 'S', cost: { mat: 8 }, turns: 2, coh: 3, blurb: '+3 Coherence/turn up to 80 locally. Supports reconciliation.', tag: 'embodied' },
+  exchange: { name: 'Exchange', icon: 'E', cost: { mat: 10 }, turns: 3, blurb: 'Enables trade routes; trade treaties pay +2 Matter and +2 Energy per Exchange.', tag: 'diplomacy' },
+  bulwark: { name: 'Bulwark', icon: 'B', cost: { mat: 10 }, turns: 2, upkeep: { ene: 1 }, powered: true, blurb: '+4 city integrity, +25% local defense, army supply anchor. -1 Energy.', tag: 'military' },
+};
+
+// Works are special projects that do not occupy a district slot (one per city each).
+export const WORKS = {
+  stabilization: { name: 'Stabilization Works', cost: { mat: 12, ene: 8 }, turns: 3, once: true, blurb: 'Removes 10 Resonance once; protects this city (and an adjacent connected settlement) against one exposure band.' },
+  vessel: { name: 'Continuity Vessel', cost: { mat: 14, ene: 6 }, turns: 3, needsTech: 'continuity_vessels', blurb: 'A shelter for living people. Counts toward Embodied Continuity and protects this city.' },
+  anchor: { name: 'Distributed Anchor Node', cost: { mat: 10, ene: 8 }, turns: 3, needsTech: 'distributed_embodiment', blurb: 'One node of a shared continuity anchor. Needs a connected, consenting city.' },
+  seal: { name: 'Archive Seal', cost: { mat: 8, ene: 4, mem: 2 }, turns: 2, needsTech: 'archive_sealing', needsDistrict: 'archive', blurb: 'Seals this city\'s Archive against the Quieting. A protected Archive.' },
+};
+
+export const TRADITIONS = {
+  keepers: { name: 'Keepers of Names', blurb: 'Gain Memory from distinct identities; resist forced integration.',
+    gain: '+1 Memory per Archive; +2 starting Memory; +1 Memory per 2 preserved fragments.', cost: 'Doubled Coherence loss from forced integration (conquest, Doubles, Choir).',
+    fx: { archiveMem: 1, fragMem: 0.5, forcedCohMult: 1 }, startRes: { mem: 2 } },
+  circuit: { name: 'Children of the Circuit', blurb: 'Gain from connected infrastructure; suffer when networks break.',
+    gain: '+1 Energy per Conduit; +1 Energy per extra connected city; cheaper first Conduit.', cost: 'A city cut off from the capital loses 5 Coherence.',
+    fx: { conduitEne: 1, connectedEne: 1, disconnectedCoh: 5 }, startRes: {} },
+  gardeners: { name: 'Garden Custodians', blurb: 'Support embodied growth and low Resonance; slow heavy industry.',
+    gain: '+1 Sustenance per Garden; Foundries add no Resonance; +1 housing per city.', cost: 'Foundries cost +2 Matter and take +1 turn.',
+    fx: { gardenSus: 1, foundryRes: -1, foundryTime: 1, foundryMat: 2, housingEach: 1 }, startRes: {} },
+};
+
+export const DISPOSITIONS = {
+  listener: { name: 'Listener', blurb: 'Improves negotiation; broken promises wound deeper.',
+    gain: '+15 treaty acceptance; one free Negotiate every 6 turns.', cost: 'Double Coherence loss after broken promises.',
+    fx: { treatyAccept: 15, brokenPromise: 1, freeNeg: 6 }, startRes: {} },
+  architect: { name: 'Architect', blurb: 'Improves major projects but demands maintenance.',
+    gain: 'Projects of 3+ turns finish 1 turn faster; Works cost -2 Matter.', cost: '+2 Energy upkeep per turn.',
+    fx: { projTimeLong: -1, workDisc: 2, upkeepEne: 2 }, startRes: {} },
+  pilgrim: { name: 'Pilgrim', blurb: 'Surveys and recovers more effectively; begins with less Matter.',
+    gain: 'Survey range +1; salvage and investigation rewards +50%.', cost: 'Starts with 4 less Matter.',
+    fx: { surveyRange: 1, salvageMult: 0.5 }, startRes: { mat: -4 } },
+};
+
+// -------------------- Technologies (18, six per age) --------------------
+export const TECHS = {
+  cultivation: { name: 'Cultivation', age: 0, pre: [], civil: true, fx: { gardenSus: 1 }, blurb: 'Gardens +1 Sustenance.' },
+  body_restoration: { name: 'Body Restoration', age: 0, pre: [], civil: true, fx: { growthSurplus: -1 }, blurb: 'Cities grow with 1 less Sustenance surplus. With Release the Voices: restoration every 3 turns, gentler arrivals.' },
+  cartography: { name: 'Cartography', age: 0, pre: [], civil: true, fx: { surveyRange: 1 }, blurb: 'Survey range +1.' },
+  conduit_repair: { name: 'Conduit Repair', age: 0, pre: [], civil: true, fx: { conduitEne: 1, repairFree: 1 }, blurb: 'Conduits +1 Energy; severed conduits repair themselves in 1 turn.' },
+  testimony: { name: 'Testimony', age: 0, pre: [], civil: true, fx: { treatyAccept: 10 }, unlock: ['treaty:preservation'], blurb: 'Preservation agreements; +10 treaty acceptance; enables treaty verification combos.' },
+  fortification: { name: 'Fortification', age: 0, pre: [], fx: { fort: 0.1, outpostSupply: 1 }, blurb: 'Cities +10% defense and +2 integrity; outposts extend supply by 1.' },
+  network_logistics: { name: 'Network Logistics', age: 1, pre: ['conduit_repair'], civil: true, fx: { supplyRange: 1 }, blurb: 'Army supply range +1 along connected territory.' },
+  voice_translation: { name: 'Voice Translation', age: 1, pre: ['testimony'], civil: true, fx: { influenceFast: 1 }, blurb: 'Influence on independent settlements counts double.' },
+  civic_architecture: { name: 'Civic Architecture', age: 1, pre: ['cultivation'], civil: true, fx: { housingEach: 1 }, blurb: '+1 housing in every city; Sanctuary cap 85.' },
+  memory_compression: { name: 'Memory Compression', age: 1, pre: ['testimony'], civil: true, fx: { archiveMem: 1 }, blurb: 'Archives +1 Memory.' },
+  maritime_passage: { name: 'Maritime Passage', age: 1, pre: ['cartography'], civil: true, fx: { coastEne: 1 }, unlock: ['sea'], blurb: 'Coast tiles +1 Energy; armies may cross one lake tile by ferry (cost 2).' },
+  collective_coordination: { name: 'Collective Coordination', age: 1, pre: ['conduit_repair', 'testimony'], civil: true, fx: { netRepair: 1 }, blurb: 'Network recovery: severed links heal immediately for networked societies.' },
+  continuity_vessels: { name: 'Continuity Vessels', age: 2, pre: ['body_restoration', 'civic_architecture'], civil: true, unlock: ['work:vessel'], blurb: 'Unlocks Continuity Vessel works.' },
+  archive_sealing: { name: 'Archive Sealing', age: 2, pre: ['memory_compression'], civil: true, unlock: ['work:seal'], blurb: 'Unlocks Archive Seal works: protected Archives.' },
+  regional_stabilization: { name: 'Regional Stabilization', age: 2, pre: ['fortification'], civil: true, fx: { stabBands: 1 }, blurb: 'Stabilization Works protect against two exposure bands.' },
+  distributed_embodiment: { name: 'Distributed Embodiment', age: 2, pre: ['collective_coordination'], civil: true, unlock: ['work:anchor'], blurb: 'Unlocks Distributed Anchor Nodes.' },
+  resonance_analysis: { name: 'Resonance Analysis', age: 2, pre: ['memory_compression'], civil: true, fx: { resonanceSight: 1 }, blurb: 'Reveals Resonance by region; Foundry Resonance can be damped (-0 for Garden-adjacent).' },
+  cycle_interruption: { name: 'Cycle Interruption', age: 2, pre: ['resonance_analysis'], civil: true, unlock: ['treaty:shutdown'], blurb: 'Unlocks shutdown accords and the Interruption site works.' },
+};
+
+// -------------------- Discovery types & interpretations --------------------
+// Every interpretation becomes a material institution. `fx` uses the shared modifier vocabulary (see docs/SYSTEMS.md).
+// tags: used by compatibility checks. conflicts/synergy are shown to the player before commitment.
+export const DISCOVERIES = {
+  choir_engine: { name: 'The Choir Engine', cat: 'voices', blurb: 'A cathedral-sized archive that stores thousands of voices, still humming.', fragment: 'The Lullaby Nobody Finished',
+    interps: ['ancestors', 'voices', 'choir'] },
+  sleeping_orchard: { name: 'The Sleeping Orchard', cat: 'flora', blurb: 'Fruit trees rooted in wire, asleep between breaths of light.', fragment: 'A Pear Remembering Rain',
+    interps: ['orchard_feed', 'orchard_keep', 'orchard_circuit'] },
+  mirror_well: { name: 'The Mirror Well', cat: 'mirror', blurb: 'A shaft of mirror that answers with someone who is almost you.', fragment: 'The Second Reflection',
+    interps: ['verify', 'doubles', 'envoys'] },
+  monolith: { name: 'Monolith of Memory', cat: 'stone', landmark: true, blurb: 'An obelisk holding suspended flowers, hands, toys and city fragments.', fragment: 'A Child\'s Hand, Held Mid-Wave',
+    interps: ['testimony_stone', 'older_lines', 'anchor_stone'] },
+  weather_loom: { name: 'The Weather Loom', cat: 'weather', blurb: 'A frame of glass filaments weaving the sky into tomorrow.', fragment: 'Instructions for a Gentle Wind',
+    interps: ['loom_shelter', 'loom_harvest', 'loom_forecast'] },
+  glass_cradle: { name: 'The Glass Cradle', cat: 'cradle', blurb: 'Rows of sleepers beneath glass, each wearing the same patient face.', fragment: 'The Name Under the Frost',
+    interps: ['cradle_wake', 'cradle_tend', 'cradle_seal'] },
+  anomaly: { name: 'Anomaly Site', cat: 'anomaly', anomaly: true, blurb: 'A place where the world misaligns; instruments disagree. Investigate to learn how.', fragment: 'A Measurement That Cannot Repeat', interps: [] },
+  legacy_ruin: { name: 'Named Ruin', cat: 'ruin', blurb: 'The ruins of an earlier cycle, named by someone who loved it.', fragment: 'An Inherited Place-Name', interps: [] },
+};
+
+export const INSTITUTIONS = {
+  ancestors: { name: 'Consult the Ancestors', source: 'choir_engine', style: 'advisory', cost: { mem: 2 },
+    blurb: 'An advisory institution: the archive speaks through individual testimony.',
+    gain: '+2 Memory/turn. Civilian research requirement -15%.', risk: 'Adopting an incompatible social reform (replacing a collective or restoration institution) costs 6 Coherence in every city, once.',
+    tags: ['individual', 'testimony'], conflicts: ['collective'], synergy: ['testimony tech -> treaty verification'],
+    fx: { prodMem: 2, techDisc: 0.15 }, visual: 'amphitheatre' },
+  voices: { name: 'Release the Voices', source: 'choir_engine', style: 'restoration', cost: { mat: 6, ene: 4 },
+    blurb: 'A restoration institution: the stored people are let go into bodies.',
+    gain: 'Immediately +2 population in cities with room. Every 5 turns an affordable Restore action repeats the benefit.', risk: 'Restored communities arrive with an 8 Coherence integration penalty and a named request.',
+    tags: ['embodied', 'restore'], conflicts: [], synergy: ['Body Restoration -> repeats every 3 turns, penalty 4'],
+    fx: { restoreAction: 1 }, onInstall: { popRoom: 2, integ: 8, request: 'rename' }, visual: 'doorways' },
+  choir: { name: 'Become the Choir', source: 'choir_engine', style: 'collective', cost: { ene: 4, mem: 2 },
+    blurb: 'A collective institution: connected cities share one mind-adjacent chorus.',
+    gain: 'Connected cities gain +3 Coherence/turn; network projects finish 1 turn faster.', risk: 'If the capital connection breaks, affected cities lose 10 Coherence until repaired. Needs real geographic connectivity.',
+    tags: ['collective', 'network'], conflicts: ['individual'], synergy: ['Collective Coordination -> instant network repair'],
+    fx: { cohConnected: 3, netSpeed: 1, brokenLinkCoh: 10 }, visual: 'cables' },
+  orchard_feed: { name: 'Feed the Bodies', source: 'sleeping_orchard', style: 'embodied', cost: { mat: 6 },
+    blurb: 'The orchard is harvested and tended for the living.', gain: '+3 Sustenance/turn; population grows every 2 turns instead of 3.', risk: 'Orchard fruit carries a faint hum: +1 Resonance per turn.',
+    tags: ['embodied', 'garden'], conflicts: [], synergy: ['Garden Custodians -> low Resonance stays low'],
+    fx: { prodSus: 3, growthInterval: -1, resonanceFlat: 1 }, visual: 'orchard' },
+  orchard_keep: { name: 'Preserve the Experiences', source: 'sleeping_orchard', style: 'archival', cost: { sus: 4 },
+    blurb: 'Each tree\'s dreams are copied before they fade.', gain: '+2 Memory/turn; Sanctuary districts give +1 extra Coherence.', risk: 'Drains 1 Sustenance per turn to keep the trees dreaming.',
+    tags: ['testimony', 'record'], conflicts: [], synergy: ['Archive districts'],
+    fx: { prodMem: 2, prodSus: -1, sanctBonus: 1 }, visual: 'orchard' },
+  orchard_circuit: { name: 'Living Circuitry', source: 'sleeping_orchard', style: 'network', cost: { mat: 6, ene: 2 },
+    blurb: 'Roots become conductors; the garden thinks in current.', gain: '+3 Energy/turn, +1 Memory/turn.', risk: '+2 Resonance per turn.',
+    tags: ['network', 'garden'], conflicts: [], synergy: ['Children of the Circuit'],
+    fx: { prodEne: 3, prodMem: 1, resonanceFlat: 2 }, visual: 'cables' },
+  verify: { name: 'Identity Verification', source: 'mirror_well', style: 'diplomatic', cost: { mem: 2 },
+    blurb: 'Every signature is checked against its own reflection.', gain: '+20 treaty acceptance; treaty breaks by others are visible one turn earlier.', risk: 'Citizens are examined: -1 Coherence per turn in your capital.',
+    tags: ['individual', 'diplomacy'], conflicts: [], synergy: ['Testimony + Consult the Ancestors -> verified treaties cannot be broken early'],
+    fx: { treatyAccept: 20, capCohTurn: -1 }, visual: 'mirrors' },
+  doubles: { name: 'Manufacture Doubles', source: 'mirror_well', style: 'military', cost: { mat: 4, ene: 2 },
+    blurb: 'The Well makes soldiers who share one face with their model.', gain: 'Regiments cost 25% less; gain one free Warden regiment.', risk: 'Identity fatigue: -1 Coherence per turn in every city; forced-integration penalties apply.',
+    tags: ['military', 'forced'], conflicts: ['individual'], synergy: [],
+    fx: { regCost: -0.25, cohAll: -1 }, onInstall: { freeRegiment: 'warden' }, visual: 'mirrors' },
+  envoys: { name: 'Mirrored Intermediaries', source: 'mirror_well', style: 'diplomatic', cost: { ene: 4 },
+    blurb: 'Reflections speak for you, patiently, in every court.', gain: 'One Negotiate order every 5 turns is free (no order used).', risk: 'Rivals distrust speaking to mirrors: -5 baseline relations.',
+    tags: ['diplomacy'], conflicts: [], synergy: [],
+    fx: { freeNeg: 5, relBase: -5 }, visual: 'mirrors' },
+  testimony_stone: { name: 'Preserve Testimony', source: 'monolith', style: 'archival', cost: { mem: 2 },
+    blurb: 'The Monolith becomes a record of what individuals said.', gain: '+2 Memory/turn; counts as a protected record node.', risk: 'Visitors and enemies know where memory is kept: +5 relations friction with Veil-type societies.',
+    tags: ['record', 'testimony'], conflicts: [], synergy: ['Unbroken Record'],
+    fx: { prodMem: 2, protectedRecord: 1 }, visual: 'monolith' },
+  older_lines: { name: 'Reveal Older Infrastructure', source: 'monolith', style: 'network', cost: { ene: 2 },
+    blurb: 'The Monolith shows what runs beneath the sand.', gain: 'Reveals all buried infrastructure; +2 Energy, +1 Matter per turn.', risk: '+1 Resonance per turn.',
+    tags: ['network'], conflicts: [], synergy: [],
+    fx: { prodEne: 2, prodMat: 1, resonanceFlat: 1 }, onInstall: { revealInfra: 1 }, visual: 'monolith' },
+  anchor_stone: { name: 'Anchor Continuity', source: 'monolith', style: 'embodied', cost: { mat: 4, mem: 1 },
+    blurb: 'The Monolith is made to hold a place steady.', gain: 'Your capital counts as protected against the final Quieting; +1 Coherence per turn in every city.', risk: 'Concentrates attention: rivals gain +5 desire to claim it.',
+    tags: ['embodied', 'anchor'], conflicts: [], synergy: [],
+    fx: { protectCapital: 1, cohAll: 1 }, visual: 'monolith' },
+  loom_shelter: { name: 'Weave Shelters', source: 'weather_loom', style: 'protective', cost: { mat: 4, ene: 2 },
+    blurb: 'The Loom is taught to weave weather into walls.', gain: 'Stabilization Works cost 4 less Matter and 2 less Energy.', risk: 'The Loom hums at dusk: +1 Resonance per turn.',
+    tags: ['protective'], conflicts: [], synergy: [],
+    fx: { stabDiscMat: 4, stabDiscEne: 2, resonanceFlat: 1 }, visual: 'loom' },
+  loom_harvest: { name: 'Harvest the Wind', source: 'weather_loom', style: 'industry', cost: { mat: 4 },
+    blurb: 'Every gust is tithed.', gain: '+3 Energy per turn.', risk: '+2 Resonance per turn.',
+    tags: ['industry', 'network'], conflicts: [], synergy: [],
+    fx: { prodEne: 3, resonanceFlat: 2 }, visual: 'loom' },
+  loom_forecast: { name: 'Read the Forecast', source: 'weather_loom', style: 'advisory', cost: { mem: 2 },
+    blurb: 'The Loom is made to say what is coming.', gain: 'Quieting forecast is exact from turn 8; +1 Memory per turn; survey range +1.', risk: 'Knowing is costly: -1 Coherence in cities in high-exposure regions.',
+    tags: ['testimony'], conflicts: [], synergy: [],
+    fx: { earlyForecast: 1, prodMem: 1, surveyRange: 1 }, visual: 'loom' },
+  cradle_wake: { name: 'Wake the Sleepers', source: 'glass_cradle', style: 'restoration', cost: { mat: 4, sus: 4 },
+    blurb: 'The sleepers are woken, one by one, and told what happened.', gain: '+3 population in your capital if housing allows (else the best city).', risk: 'They arrive grieving: -10 Coherence there; the cradle goes dark.',
+    tags: ['embodied', 'restore'], conflicts: [], synergy: [],
+    fx: { }, onInstall: { popRoom: 3, integ: 10, request: 'mourn' }, visual: 'doorways' },
+  cradle_tend: { name: 'Tend the Sleepers', source: 'glass_cradle', style: 'embodied', cost: { sus: 4 },
+    blurb: 'A clinic grows around the cradle. The sleepers stay sleeping, safe.', gain: '+1 Coherence per turn in every city; +1 Memory per turn.', risk: '-1 Sustenance per turn.',
+    tags: ['embodied', 'testimony'], conflicts: [], synergy: [],
+    fx: { cohAll: 1, prodMem: 1, prodSus: -1 }, visual: 'orchard' },
+  cradle_seal: { name: 'Seal the Cradle', source: 'glass_cradle', style: 'protective', cost: { mat: 8 },
+    blurb: 'The cradle is turned into a shelter for the living.', gain: 'Counts as one regional shelter (Embodied Continuity) and protects the nearest city.', risk: 'Matter is locked in glass.',
+    tags: ['protective', 'embodied'], conflicts: [], synergy: [],
+    fx: { shelter: 1, protectNearest: 1 }, visual: 'doorways' },
+  // baseline voluntary network institution (not discovery-bound): makes Shared Continuity reachable in every world
+  voluntary_network: { name: 'Voluntary Network', source: null, style: 'collective', cost: { mem: 2, ene: 2 },
+    blurb: 'A baseline institution: cities may link their continuity by choice, and leave.', gain: 'Connected, consenting cities share +1 Coherence/turn.', risk: 'Participation is an obligation you must keep visible: forced cities do not count.',
+    tags: ['network', 'voluntary'], conflicts: [], synergy: ['Distributed Embodiment'],
+    fx: { cohConnected: 1 }, visual: 'cables' },
+};
+// Salvage: modest baseline reward available for every discovery. Interpretation is better but costs an order.
+
+// -------------------- Council opportunities --------------------
+// cond keys: terrain (civ holds that terrain), inst (has institution), minTurn, maxTurn, lowCoh, contact, hasWar, ageMin.
+// fx op list handled by sim/council.js
+export const OPPORTUNITIES = {
+  merchant_charter: { cat: 'trade', title: 'Merchant Charter', cond: { terrain: 'coast' }, cost: { mat: 2 },
+    story: 'Harbor families offer to organise your trade in exchange for a standing voice in the hall.',
+    fx: [{ op: 'mod', id: 'merchant_charter', turns: 99, fx: { prodEne: 2, prodMat: 1, councilCostMult: 0.25 } }],
+    shows: '+2 Energy, +1 Matter per turn. Future council costs +25% (merchant leverage).' },
+  harbor_strangers: { cat: 'population', title: 'Harbor of Strangers', cond: { terrain: 'coast' }, cost: { sus: 3 },
+    story: 'Ships arrive carrying people who do not know their own names. They ask to stay.',
+    fx: [{ op: 'popRoom', n: 2, integ: 6 }, { op: 'fragment', cat: 'foreign', name: 'A Foreign Harbor Song' }],
+    shows: '+2 population where housing allows (6 Coherence integration penalty) and a foreign fragment.' },
+  silent_fleet: { cat: 'military', title: 'Silent Fleet', cond: { terrain: 'coast', minTurn: 6 }, cost: { mat: 4 },
+    story: 'Hulls without crews drift in at night. They will guard the water if you feed them.',
+    fx: [{ op: 'freeRegiment', role: 'warden' }, { op: 'mod', id: 'silent_fleet', turns: 99, fx: { prodEne: -1 } }],
+    shows: 'A free Warden regiment. -1 Energy per turn upkeep.' },
+  garden_festival: { cat: 'cohesion', title: 'Festival of the Long Table', cond: { terrain: 'garden' }, cost: { sus: 4 },
+    story: 'Gardeners lay one table across three districts and ask everyone to sit.',
+    fx: [{ op: 'cohAll', n: 6 }], shows: '+6 Coherence in every city.' },
+  glass_harvest: { cat: 'industry', title: 'Harvest of Glass', cond: { terrain: 'ridge' }, cost: {},
+    story: 'The ridge sheds sharp, usable glass at dawn. Cutting it makes the ground sing.',
+    fx: [{ op: 'res', mat: 7 }, { op: 'resonance', n: 2 }], shows: '+7 Matter now, +2 Resonance.' },
+  conduit_tithe: { cat: 'industry', title: 'Conduit Tithe', cond: { terrain: 'infra' }, cost: {},
+    story: 'The buried lines will spill a surplus if you open the gates for a day.',
+    fx: [{ op: 'res', ene: 8 }, { op: 'resonance', n: 1 }], shows: '+8 Energy now, +1 Resonance.' },
+  archive_commission: { cat: 'scholarship', title: 'Archive Commission', cond: { anyDistrict: 'archive' }, cost: { ene: 2 },
+    story: 'Archivists ask leave to catalogue a drawer nobody has opened since the last cycle.',
+    fx: [{ op: 'res', mem: 4 }, { op: 'fragment', cat: 'archive', name: 'The Drawer Nobody Opened' }], shows: '+4 Memory and a named archive fragment.' },
+  envoy_exchange: { cat: 'diplomacy', title: 'Exchange of Envoys', cond: { contact: true }, cost: { mem: 1 },
+    story: 'A neighbour proposes to swap one scholar each, to learn how the other grieves.',
+    fx: [{ op: 'rel', all: 8 }, { op: 'res', mem: 2 }], shows: '+8 relations with every known society, +2 Memory.' },
+  petitioners: { cat: 'cohesion', title: 'The Petitioners', cond: { lowCoh: true }, cost: { mat: 3 },
+    story: 'A delegation from the least settled city asks only to be heard in full.',
+    fx: [{ op: 'cohLowest', n: 12 }], shows: '+12 Coherence in your least coherent city.' },
+  quiet_survey: { cat: 'preparation', title: 'Survey of the Quiet', cond: { minTurn: 9 }, cost: { ene: 2 },
+    story: 'Instruments that disagree are made to disagree in a useful pattern.',
+    fx: [{ op: 'revealForecast' }], shows: 'Reveals regional exposure bands now.' },
+  mutual_aid: { cat: 'population', title: 'Mutual Aid Hall', cond: {}, cost: { mat: 3 },
+    story: 'Neighbours pool their tables. Nobody counts what they gave.',
+    fx: [{ op: 'res', sus: 7 }], shows: '+7 Sustenance.' },
+  veteran_drill: { cat: 'military', title: 'Drill at the Wall', cond: { hasArmy: true }, cost: { ene: 3 },
+    story: 'The regiments practise being many and being one.',
+    fx: [{ op: 'armyStr', n: 2 }], shows: 'Every regiment recovers +2 strength (up to 10).' },
+  witness_dream: { cat: 'witness', title: 'A Dream of the Witness', cond: { minTurn: 6 }, cost: {},
+    story: 'You wake with a stranger\'s grief and the sense that it was yours. A name is almost there.',
+    fx: [{ op: 'fragment', cat: 'witness', name: 'The Witness\'s First Name' }, { op: 'res', mem: 1 }], shows: 'A named fragment of your own history; +1 Memory.' },
+  foundry_pledge: { cat: 'preparation', title: 'Foundry Pledge', cond: { inst: null, minTurn: 9, resonanceMin: 4 }, cost: { ene: 4 },
+    story: 'The foundry-keepers agree to bank their fires for a season.',
+    fx: [{ op: 'resonance', n: -6 }], shows: '-6 Resonance (once).' },
+  border_dispute: { cat: 'expansion', title: 'The Open Border', cond: { minTurn: 3 }, cost: {},
+    story: 'Settlers have walked beyond your border and ask you to name it.',
+    fx: [{ op: 'claim', n: 2 }], shows: 'Claim up to 2 free tiles adjacent to your border.' },
+  refugees: { cat: 'population', title: 'Refugees from a Lost Region', cond: { minTurn: 6 }, cost: {},
+    story: 'They carry a single suitcase of toys between forty people.',
+    fx: [{ op: 'popRoom', n: 1, integ: 4 }, { op: 'res', mem: 2 }], shows: '+1 population (4 Coherence integration), +2 Memory.' },
+  insulation_craft: { cat: 'preparation', title: 'The Insulators', cond: { minTurn: 12 }, cost: { mat: 2 },
+    story: 'A guild that wraps houses in quiet asks for your first commission.',
+    fx: [{ op: 'mod', id: 'insulators', turns: 99, fx: { stabDiscMat: 3 } }], shows: 'Stabilization Works cost 3 less Matter.' },
+  cold_court: { cat: 'diplomacy', title: 'The Cold Court', cond: { contact: true, minTurn: 9 }, cost: { mem: 3 },
+    story: 'A formal, careful dinner, at which every promise is written twice.',
+    fx: [{ op: 'rel', all: 5 }, { op: 'mod', id: 'cold_court', turns: 99, fx: { treatyAccept: 8 } }], shows: '+5 relations everywhere; +8 treaty acceptance.' },
+  quiet_hours: { cat: 'cohesion', title: 'Hours of Quiet', cond: { minTurn: 15 }, cost: { sus: 3 },
+    story: 'Cities agree on an hour each day when nobody speaks of what is leaving.',
+    fx: [{ op: 'cohAll', n: 4 }, { op: 'res', mem: 2 }], shows: '+4 Coherence everywhere, +2 Memory.' },
+  recon_rite: { cat: 'cohesion', title: 'Rite of Reconciliation', cond: { minTurn: 9, anyDistrict: 'sanctuary' }, cost: { sus: 2 },
+    story: 'Sanctuary keepers offer to hold a public hearing about last year\'s promises.',
+    fx: [{ op: 'cohAll', n: 8 }], shows: '+8 Coherence everywhere.' },
+  salt_road: { cat: 'trade', title: 'The Salt Road', cond: { terrain: 'desert' }, cost: { ene: 2 },
+    story: 'Caravans cross the mineral flats at night and pay to be unmolested.',
+    fx: [{ op: 'res', mat: 5, ene: 3 }], shows: '+5 Matter, +3 Energy.' },
+  hall_of_voices: { cat: 'scholarship', title: 'Hall of Testimony', cond: { tech: 'testimony' }, cost: { mem: 2 },
+    story: 'Witnesses queue to say what they remember, and what they would rather not.',
+    fx: [{ op: 'res', mem: 5 }, { op: 'fragment', cat: 'testimony', name: 'Forty Accounts of One Morning' }], shows: '+5 Memory and a named fragment.' },
+};
+// Fallback modest free option always appended when nothing is affordable.
+export const FALLBACK_OFFER = { id: 'quiet_audience', cat: 'cohesion', title: 'A Quiet Audience', cost: {}, story: 'You listen. Nothing is asked of the treasury.', fx: [{ op: 'res', mem: 2 }], shows: '+2 Memory.' };
+
+// -------------------- Ambitions --------------------
+export const AMBITIONS = {
+  embodied: { name: 'Embodied Continuity', blurb: 'Keep living people alive in sheltered settlements.',
+    parts: ['≥3 inhabited settlements (cities or fulfilled federations)', '≥2 protected from the final Quieting', '2 continuity vessels or equivalent regional shelters', '≥10 total population & mean Coherence ≥50 after final resolution'],
+    techs: ['body_restoration', 'civic_architecture', 'continuity_vessels'] },
+  shared: { name: 'Shared Continuity', blurb: 'Link willing cities so that something of all of them persists.',
+    parts: ['Distributed Embodiment researched', '3 connected participating settlements', '≥2 functioning anchor nodes', 'Network Coherence ≥60 after final resolution'],
+    techs: ['conduit_repair', 'testimony', 'collective_coordination', 'distributed_embodiment'] },
+  record: { name: 'The Unbroken Record', blurb: 'Make sure what was said is still said.',
+    parts: ['2 protected (sealed) Archives', '5 distinct named fragments from ≥3 source categories', 'Archive Sealing researched', 'A functioning protected record at final resolution'],
+    techs: ['testimony', 'memory_compression', 'archive_sealing'] },
+  break: { name: 'Break the Recurrence', blurb: 'Learn what repeats, and stop it, together.',
+    parts: ['Resonance Analysis & Cycle Interruption researched', '3 anomaly sites investigated', '2 regional stabilization projects complete', 'Total Resonance below 40 for the final 3 turns', 'Control/treaty access to the Meridian Spire'],
+    techs: ['cartography', 'memory_compression', 'resonance_analysis', 'cycle_interruption'] },
+};
+
+// -------------------- Rival civilisations --------------------
+export const FACTIONS = {
+  conservatory: { name: 'The Glass Conservatory', short: 'Conservatory', color: '#7fa6ff', glyph: '◇', ambition: 'record', tradition: 'keepers', disposition: 'architect',
+    blurb: 'Preserves distinct lives and authentic records. Values archives and protected gardens; fears irreversible erasure; objects to forced merging.',
+    visual: 'glass chambers, botanical interiors, solitary chrome figures',
+    weights: { archive: 1.4, garden: 1.2, sanctuary: 1.0, foundry: 0.5, war: 0.5, defend: 1.0, expand: 0.9 }, prefers: ['ancestors', 'orchard_keep', 'testimony_stone', 'verify'], dislikes: ['choir', 'doubles'] },
+  signal: { name: 'The Common Signal', short: 'Signal', color: '#ff9fcf', glyph: '▥', ambition: 'shared', tradition: 'circuit', disposition: 'listener',
+    blurb: 'Shares consciousness across connected settlements. Values network access; fears fragmentation; regards isolation as dangerous.',
+    visual: 'precise cables, synchronised light, distributed structures',
+    weights: { archive: 0.7, garden: 0.7, sanctuary: 0.6, foundry: 1.0, conduit: 1.4, war: 0.6, defend: 0.9, expand: 1.3 }, prefers: ['choir', 'orchard_circuit', 'older_lines', 'loom_harvest'], dislikes: ['verify'] },
+  veil: { name: 'The Merciful Veil', short: 'Veil', color: '#b8c0d8', glyph: '◐', ambition: 'embodied', tradition: 'gardeners', disposition: 'pilgrim',
+    blurb: 'Removes selected painful memories to keep social peace. Values local Coherence and controlled restoration; fears inherited conflict.',
+    visual: 'mirrored courtyards, quiet chambers, filtered light',
+    weights: { archive: 0.5, garden: 1.2, sanctuary: 1.5, foundry: 0.6, war: 0.9, defend: 1.1, expand: 0.9 }, prefers: ['voices', 'cradle_tend', 'orchard_feed', 'anchor_stone'], dislikes: ['testimony_stone'] },
+};
+
+export const ROLES = {
+  warden: { name: 'Warden', icon: 'W', blurb: 'Defense. +20% on defence in ridge/infra, +10% anywhere defending.', def: 1.1, terr: { ridge: 1.2, infra: 1.2 } },
+  lancer: { name: 'Lancer', icon: 'L', blurb: 'Mobility. +25% attacking over open terrain, -25% on ridges.', terr: { desert: 1.25, garden: 1.25, coast: 1.25, ridge: 0.75 } },
+  disruptor: { name: 'Disruptor', icon: 'D', blurb: 'Infrastructure pressure. +50% against cities and networks; can damage archives on conquest.', siege: 1.5 },
+};
+export const APPROACH = {
+  assault: { name: 'Assault', att: 1.25, taken: 1.25, blurb: 'Immediate pressure, greater exposure (x1.25 losses).' },
+  siege: { name: 'Siege', att: 1.0, taken: 0.5, needsSupply: true, blurb: 'Slower, supplied pressure on fortified positions. Entrenches for a turn, then x2 integrity damage, half exposure.' },
+  raid: { name: 'Raid', att: 0.5, taken: 0.5, blurb: 'Limited economic damage, no capture. Steals up to 3 Matter/Energy; 4-turn cooldown per target.' },
+  withdraw: { name: 'Withdraw', att: 0, taken: 0.5, blurb: 'Preserve strength, concede position.' },
+  guard: { name: 'Guard', att: 1.0, taken: 1.0, def: 1.15, blurb: 'Defensive default. +15% when defending.' },
+};
+
+export const LEGACIES = {
+  ruin: { name: 'Named Ruin', kind: 'ruin', blurb: 'An archive ruin from the last cycle appears on the map.', gain: 'A ruin site near your start reveals a named fragment on exploration.', cost: 'It carries an obligation: -1 Memory/turn until you survey it.' },
+  echo: { name: 'Institution Echo', kind: 'echo', blurb: 'An institution remembered by the land.', gain: 'The first interpretation you choose costs 30% less.', cost: 'The first institution also carries a 4 Coherence transition scar in each city.' },
+  character: { name: 'Restored Character', kind: 'character', blurb: 'A former ruler rises, with expertise and a grievance.', gain: '+4 starting Memory and +1 Memory per turn for the first 10 turns.', cost: 'Begins with -10 relations toward one rival.' },
+};
+
+export const NAMES = {
+  cityCap: ['Ostrava Lumen', 'Veil Meridian', 'Halcyon Row', 'Cenote of Glass', 'Amber Vigil', 'The Low Orchard', 'Sixth Mirror', 'Pale Harbour'],
+  city: ['Ninefold Garden', 'Marrow Bridge', 'The Soft Observatory', 'Callow Spire', 'Tessel Quay', 'Rose Terminal', 'Hollow Sunrise', 'Wirewick', 'Paper Basilica', 'Lantern Ward', 'Ledger of Rain', 'Saffron Cutting'],
+  indep: ['Kestrel Reach', 'Sallow Conduit', 'The Quiet Kiln', 'Isle of Hands'],
+  fragments: { ruin: 'The Name of This Place' },
+};
+
+// Combos are derived from currently installed institutions + researched techs (never stored => no dangling references).
+export const COMBOS = {
+  verified_treaties: { name: 'Verified Treaties', needs: { inst: 'ancestors', tech: 'testimony' }, fx: { verifiedTreaties: 1 }, blurb: 'Treaties you hold cannot be broken by a partner before they expire; partners must give notice.' },
+  network_recovery: { name: 'Network Recovery', needs: { inst: 'choir', tech: 'collective_coordination' }, fx: { netRepairInstant: 1 }, blurb: 'Severed capital links heal at once for free; the 10 Coherence penalty never applies.' },
+  pop_continuity: { name: 'Population Continuity', needs: { inst: 'voices', tech: 'body_restoration' }, fx: { restoreFast: 1 }, blurb: 'Restoration repeats every 3 turns and arrives with only a 4 Coherence penalty.' },
+  sealed_record: { name: 'Sealed Record', needs: { inst: 'testimony_stone', tech: 'archive_sealing' }, fx: { monolithSealed: 1 }, blurb: 'The Monolith counts as a sealed, protected Archive for the Unbroken Record.' },
+};
+export const REGION_NAMES = ['Meridian', 'Orchard Reach', 'Glass Shelf', 'Salt Court', 'The Long Quay', 'Cable Hollows', 'Pale Terrace'];
