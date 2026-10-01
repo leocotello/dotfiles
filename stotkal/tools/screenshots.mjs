@@ -36,6 +36,10 @@ await page.evaluate(async () => { const a = window.__stotkal; const S = a.S; con
 await shot(page, '13-army-path-and-forecast');
 await page.evaluate(() => { const a = window.__stotkal; a.ui.targeting = null; a.ui.path = null; a.ui.hoverFc = null; });
 await ff(page, 30); await click(page, '[data-act="endturn"]'); await page.waitForTimeout(150); await page.keyboard.press('Enter'); await page.waitForTimeout(500); await shot(page, '14-chronicle-and-legacy');
+// choose the first legacy, begin another cycle and check that it took effect
+await page.evaluate(() => document.querySelector('.opt [data-act="legacy"]:not([disabled])').click()); await page.waitForTimeout(150);
+await page.click('[data-act="nextrun"]'); await page.waitForTimeout(300); await page.click('[data-act="beginrun"]'); await page.waitForTimeout(500);
+console.log('next cycle legacy:', JSON.stringify(await page.evaluate(() => window.__stotkal.S.legacy)), '| legacy ruin sites:', await page.evaluate(() => Object.values(window.__stotkal.S.sites).filter(s => s.type === 'legacy_ruin').length));
 await browser.close();
 // responsive / accessibility variants
 for (const [w, h, scale, name, rm] of [[1024, 640, 1, '15-window-1024x640', false], [800, 600, 1, '16-window-800x600', false], [1440, 900, 1.4, '17-text-scale-140', false], [1280, 720, 1, '18-reduced-motion', true]]) {

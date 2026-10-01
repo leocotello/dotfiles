@@ -185,3 +185,12 @@ test('governance: fogged information, last-known enemy positions, and rival obey
   const farTile = tile(S, sc.q, sc.r); Y.lastKnown[a.id] = { q: farTile.q, r: farTile.r, turn: S.turn - 3, owner: 'signal', str: 10 }; updateVision(S);
   assert.ok(Y.lastKnown[a.id] && S.turn - Y.lastKnown[a.id].turn === 3, 'outdated marker persists');
 });
+
+test('regional crises obey a per-region cooldown and never stack on the same turn', () => {
+  const S = fresh('crisis'); const c = cap(S); c.districts = [{ type: 'conduit' }]; S.regions.forEach(r => r.exposure = 0); S.regions[tile(S, c.q, c.r).region].exposure = 2;
+  for (const id of ['conservatory', 'signal', 'veil']) for (const x of civCities(S, id)) x.districts = []; // only the player has a crisis-able city
+  const sever = () => S.log.filter(l => /conduit at .* was severed/.test(l.text)).length;
+  S.turn = 16; quietingPhase(S); assert.equal(sever(), 1, 'first crisis fires at turn 16'); c.disabled.conduit = 0;
+  S.turn = 19; quietingPhase(S); assert.equal(sever(), 1, 'cooldown suppresses a second crisis in the same region'); const reg = tile(S, c.q, c.r).region; assert.ok(S.quiet.cd[reg] > 19);
+  S.turn = 25; quietingPhase(S); assert.equal(sever(), 2, 'allowed again once the cooldown has passed');
+});
