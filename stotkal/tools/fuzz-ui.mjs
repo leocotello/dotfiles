@@ -1,6 +1,6 @@
 // UI robustness fuzz: clicks random enabled controls (seeded) through a whole run, looking for console errors and dead ends.
 //   node tools/serve.js &   node tools/fuzz-ui.mjs [seed] [steps]
-import { launch } from './shot.mjs';
+import { launch } from './browser.mjs';
 const seed = process.argv[2] || 'fuzz1'; const steps = +(process.argv[3] || 600);
 const { browser, page, errors } = await launch(1366, 800);
 page.on('console', m => { if (m.text().startsWith('progress')) console.log(m.text()); });

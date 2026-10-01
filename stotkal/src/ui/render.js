@@ -32,6 +32,11 @@ export class Renderer {
     this.R = Math.max(18, base) * this.view.zoom; this.ox = (this.W - this.panelW) / 2 + this.view.px; this.oy = this.topH + (ah / 2) + 10 + this.view.py;
   }
   focusOn(q, r, zoom = 1.45) { this.view.zoom = zoom; this.view.px = 0; this.view.py = 0; this.fit(); const p = this.xy(q, r); const cx = (this.W - this.panelW) / 2, cy = this.topH + (this.H - this.topH - this.botH) / 2; this.view.px = cx - p.x; this.view.py = cy - p.y; this.fit(); }
+  ensureVisible(q, r) { // keep keyboard-moved selection on screen
+    const p = this.xy(q, r); const m = this.R * 1.6; const x0 = m, x1 = this.W - this.panelW - m, y0 = this.topH + m, y1 = this.H - this.botH - m; let dx = 0, dy = 0;
+    if (p.x < x0) dx = x0 - p.x; else if (p.x > x1) dx = x1 - p.x; if (p.y < y0) dy = y0 - p.y; else if (p.y > y1) dy = y1 - p.y;
+    if (dx || dy) { this.view.px += dx; this.view.py += dy; }
+  }
   xy(q, r) { return { x: this.ox + this.R * Math.sqrt(3) * (q + r / 2), y: this.oy + this.R * 1.5 * r * YS }; }
   pick(mx, my, tiles) {
     let best = null, bd = 1e9;

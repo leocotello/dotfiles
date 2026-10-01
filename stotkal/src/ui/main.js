@@ -231,8 +231,8 @@ function canvasMove(e) {
 }
 function moveSel(dq, dr) {
   const S = app.S; let s = app.ui.sel; if (!s) { const cap = S.cities[S.civs.you.cap]; s = { q: cap.q, r: cap.r }; }
-  const nt = tileAt(S, s.q + dq, s.r + dr); if (!nt) return; const army = Object.values(S.armies).find(a => a.owner === 'you' && a.q === nt.q && a.r === nt.r); app.ui.sel = { q: nt.q, r: nt.r, army: army && army.id }; app.ui.sheet = 'context'; showStagedPath(); refresh();
-  const live = $('#map-hover'); }
+  const nt = tileAt(S, s.q + dq, s.r + dr); if (!nt) return; const army = Object.values(S.armies).find(a => a.owner === 'you' && a.q === nt.q && a.r === nt.r); app.ui.sel = { q: nt.q, r: nt.r, army: army && army.id }; app.ui.sheet = 'context'; renderer.ensureVisible(nt.q, nt.r); showStagedPath(); refresh();
+}
 function onKey(e) {
   const tag = (e.target.tagName || '').toLowerCase(); const typing = tag === 'input' && e.target.type === 'text' || tag === 'textarea';
   if (e.key === 'D' && e.shiftKey && e.ctrlKey) { app.settings.debug = !app.settings.debug; applySettings(); refresh(); return; }

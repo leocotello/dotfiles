@@ -1,4 +1,4 @@
-// Usage: node tools/shot.mjs  -> drives the real UI in headless Chromium, reports console errors and saves screenshots.
+// Usage: node tools/browser.mjs  -> drives the real UI in headless Chromium, reports console errors and saves screenshots.
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 let pw; try { pw = require('playwright'); } catch (e) { pw = require(process.env.PLAYWRIGHT_PATH || '/opt/node-tools/node_modules/playwright'); }
@@ -9,7 +9,7 @@ export async function launch(w = 1440, h = 900, extra = {}) {
   const errors = []; page.on('pageerror', e => errors.push('PAGEERROR ' + e.message + '\n' + (e.stack || '').split('\n').slice(0, 3).join('\n'))); page.on('console', m => { if (m.type() === 'error') errors.push('CONSOLE ' + m.text()); });
   return { browser, page, errors };
 }
-if (process.argv[1].endsWith('shot.mjs')) {
+if (process.argv[1].endsWith('browser.mjs')) {
   const { browser, page, errors } = await launch();
   await page.goto('http://localhost:8765/'); await page.waitForTimeout(600);
   await page.screenshot({ path: 'screenshots/00-setup.png' });

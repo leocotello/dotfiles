@@ -1,6 +1,6 @@
 // Regenerates the representative screenshots by driving the real UI in headless Chromium.
 //   node tools/serve.js &   node tools/screenshots.mjs
-import { launch } from './shot.mjs';
+import { launch } from './browser.mjs';
 const BASE = process.env.BASE || 'http://localhost:8765/';
 const shot = async (page, name) => { await page.waitForTimeout(350); await page.screenshot({ path: `screenshots/${name}.png` }); console.log('saved', name); };
 const ff = (page, n, fac = 'conservatory', amb = 'record') => page.evaluate(async ([n, fac, amb]) => { const a = window.__stotkal; const R = await import('/src/sim/rival.js'); const E = await import('/src/sim/resolve.js'); while (!a.S.over && a.S.turn < n) { R.planAs(a.S, 'you', fac, amb); E.endTurn(a.S); } a.ui.modal = null; a.ui.queue = []; a.ui.guideOff = true; a.ui.sel = { q: a.S.cities[a.S.civs.you.cap].q, r: a.S.cities[a.S.civs.you.cap].r }; document.querySelector('[data-act="sheet"][data-s="context"]')?.click(); }, [n, fac, amb]);

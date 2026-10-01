@@ -1,4 +1,4 @@
-import { launch } from './shot.mjs';
+import { launch } from './browser.mjs';
 const { browser, page, errors } = await launch(1440, 900);
 await page.goto('http://localhost:8765/?seed=perf&auto=1'); await page.waitForTimeout(500);
 const r = await page.evaluate(async () => {

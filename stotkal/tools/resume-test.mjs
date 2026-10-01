@@ -1,5 +1,5 @@
 // Real-browser check: quit at the commitment stage (orders staged on a council turn) and resume; nothing may change.
-import { launch } from './shot.mjs';
+import { launch } from './browser.mjs';
 const { browser, page, errors } = await launch(1366, 800);
 await page.goto('http://localhost:8765/?seed=resume1&auto=1'); await page.waitForTimeout(500);
 await page.evaluate(async () => { const a = window.__stotkal; const R = await import('/src/sim/rival.js'); const E = await import('/src/sim/resolve.js'); while (a.S.turn < 6) { R.planAs(a.S, 'you', 'veil', 'embodied'); E.endTurn(a.S); } a.ui.modal = null; });
