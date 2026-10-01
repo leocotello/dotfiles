@@ -239,7 +239,7 @@ const COST = {
     const city = S.cities[c.city]; const cost = projectCost(S, civ, city, c.what);
     if (c.replace !== undefined) cost.mat += CFG.cost.rebuildDistrict.mat; return cost;
   },
-  claim: () => ({ ...zero(), ...CFG.cost.claim }), outpost: () => ({ ...zero(), ...CFG.cost.outpost }), city: () => ({ ...zero(), ...CFG.cost.city }),
+  claim: () => ({ ...zero(), ...CFG.cost.claim }), outpost: (S, civ) => ({ ...zero(), ...CFG.cost.outpost, mat: Math.max(1, CFG.cost.outpost.mat - fx(S, civ, 'outpostDisc')) }), city: () => ({ ...zero(), ...CFG.cost.city }),
   investigate: () => ({ ...zero(), ...CFG.cost.investigate }),
   recruit: (S, civ) => recruitCost(S, civ),
   answer: (S, civ, c) => (c.honor ? { ...zero(), mem: 1 } : zero()),

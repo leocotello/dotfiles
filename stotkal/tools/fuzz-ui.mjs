@@ -2,25 +2,27 @@
 //   node tools/serve.js &   node tools/fuzz-ui.mjs [seed] [steps]
 import { launch } from './shot.mjs';
 const seed = process.argv[2] || 'fuzz1'; const steps = +(process.argv[3] || 600);
-let a = [...seed].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7); const rnd = () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 const { browser, page, errors } = await launch(1366, 800);
+page.on('console', m => { if (m.text().startsWith('progress')) console.log(m.text()); });
 await page.goto('http://localhost:8765/?seed=' + seed + '&auto=1'); await page.waitForTimeout(600);
-const SKIP = new Set(['newrun', 'exportsave', 'dbg', 'scrim', 'savenow']); let clicks = 0, commits = 0, turnsSeen = new Set(), ended = false;
-for (let i = 0; i < steps && !ended; i++) {
-  const st = await page.evaluate(() => ({ turn: window.__stotkal.S && window.__stotkal.S.turn, over: window.__stotkal.S && window.__stotkal.S.over, modal: window.__stotkal.ui.modal && window.__stotkal.ui.modal.type }));
-  turnsSeen.add(st.turn);
-  if (st.modal === 'ending') { ended = true; break; }
-  // every ~14 clicks, commit the turn so the run progresses
-  if (i % 14 === 13) { if (st.modal === 'commit') { await page.keyboard.press('Enter'); commits++; await page.waitForTimeout(40); continue; } await page.evaluate(() => { const b = document.querySelector('[data-act="endturn"]'); b && b.click(); }); await page.waitForTimeout(30); if ((await page.evaluate(() => window.__stotkal.ui.modal && window.__stotkal.ui.modal.type)) === 'commit') { await page.keyboard.press('Enter'); commits++; } await page.waitForTimeout(40); continue; }
-  const handles = await page.$$('[data-act]:not([disabled])'); const cands = [];
-  for (const h of handles) { const act = await h.getAttribute('data-act'); if (SKIP.has(act)) continue; if (!(await h.isVisible())) continue; cands.push(h); }
-  if (st.modal && st.modal !== 'ending' && rnd() < 0.3) { await page.keyboard.press('Escape'); await page.waitForTimeout(20); continue; }
-  if (!cands.length) { await page.keyboard.press('Escape'); continue; }
-  const pick = cands[Math.floor(rnd() * cands.length)]; try { await pick.click({ timeout: 800 }); clicks++; } catch (e) { /* element moved: fine */ }
-  // occasionally click on the map
-  if (rnd() < 0.25) { const q = await page.evaluate(() => { const a = window.__stotkal; const ts = Object.values(a.S.map.tiles); const t = ts[Math.floor(Math.random() * ts.length)]; const p = a.renderer.xy(t.q, t.r); const r = document.getElementById('map').getBoundingClientRect(); return { x: r.left + p.x, y: r.top + p.y - 4 }; }); if (!(await page.evaluate(() => !!window.__stotkal.ui.modal))) await page.mouse.click(q.x, q.y); }
-  await page.waitForTimeout(8);
-}
-const final = await page.evaluate(() => ({ turn: window.__stotkal.S.turn, over: window.__stotkal.S.over }));
-console.log(`clicks ${clicks}, commits ${commits}, turns visited ${[...turnsSeen].filter(Boolean).length}, final turn ${final.turn}, over ${final.over}`);
-console.log(errors.length ? 'ERRORS:\n' + [...new Set(errors)].join('\n') : 'no console errors'); await browser.close();
+// the whole fuzz loop runs inside the page (fast); randomness is a seeded PRNG
+const result = await page.evaluate(async ({ seed, steps }) => {
+  let a = [...seed].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7); const rnd = () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const app = window.__stotkal; const SKIP = new Set(['newrun', 'exportsave', 'dbg', 'scrim', 'savenow', 'nextrun']);
+  const visible = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  let clicks = 0, commits = 0, mapclicks = 0; const turns = new Set(); const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+  for (let i = 0; i < steps; i++) {
+    if (i % 100 === 0) console.log('progress', i, 'turn', app.S.turn, 'modal', app.ui.modal && app.ui.modal.type);
+    turns.add(app.S.turn); if (app.ui.modal && app.ui.modal.type === 'ending') break;
+    if (i % 12 === 11) { const b = document.querySelector('[data-act="endturn"]'); if (!app.ui.modal && b) b.click(); if (app.ui.modal && app.ui.modal.type === 'commit') { document.querySelector('[data-act="commit"]').click(); commits++; } else if (app.ui.modal && app.ui.modal.type === 'summary') document.querySelector('[data-act="closemodal"]').click(); await sleep(5); continue; }
+    if (app.ui.modal && app.ui.modal.type === 'commit') { document.querySelector('[data-act="commit"]').click(); commits++; await sleep(5); continue; }
+    const cands = [...document.querySelectorAll('[data-act]')].filter(el => !el.disabled && !SKIP.has(el.dataset.act) && visible(el) && !(el.tagName === 'INPUT'));
+    if (app.ui.modal && app.ui.modal.type !== 'ending' && rnd() < 0.3) { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); await sleep(2); continue; }
+    if (cands.length) { cands[Math.floor(rnd() * cands.length)].click(); clicks++; }
+    if (!app.ui.modal && rnd() < 0.3) { const ts = Object.values(app.S.map.tiles); const t = ts[Math.floor(rnd() * ts.length)]; const p = app.renderer.xy(t.q, t.r); const r = document.getElementById('map').getBoundingClientRect(); const ev = (type) => new MouseEvent(type, { clientX: r.left + p.x, clientY: r.top + p.y - 4, bubbles: true }); const cv = document.getElementById('map'); cv.dispatchEvent(ev('mousedown')); window.dispatchEvent(ev('mouseup')); mapclicks++; }
+    if (rnd() < 0.1) { const keys = ['s', 'x', 'o', 'f', 'e', 'd', 'q', 'a', 'l', 'g', 'u', 'c', 'm', 'ArrowLeft', 'ArrowUp', 'ArrowDown', 'ArrowRight', 'Escape']; window.dispatchEvent(new KeyboardEvent('keydown', { key: keys[Math.floor(rnd() * keys.length)], bubbles: true })); }
+    await sleep(2);
+  }
+  return { clicks, commits, mapclicks, turns: turns.size, finalTurn: app.S.turn, over: app.S.over, modal: app.ui.modal && app.ui.modal.type };
+}, { seed, steps });
+console.log(JSON.stringify(result)); console.log(errors.length ? 'ERRORS:\n' + [...new Set(errors)].join('\n') : 'no console errors'); await browser.close();

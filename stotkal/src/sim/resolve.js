@@ -150,7 +150,7 @@ const PH = {
         if (c.shortTurns >= 2 && c.pop > 1) { c.pop--; if (civId === 'you') log(S, 'you', `${c.name} lost population to hunger.`, 2); }
         // coherence
         const bd = cohBreakdown(S, c, econ); c.coh = Math.max(0, Math.min(100, c.coh + bd.delta));
-        if (c.reconcile) { c.reconcile.left--; if (c.reconcile.left <= 0) { c.coh = Math.min(100, c.coh + CFG.coherence.reconcileGain); c.reconcile = null; if (civId === 'you') log(S, 'you', `${c.name}: reconciliation complete (+${CFG.coherence.reconcileGain} Coherence).`, 1); } }
+        if (c.reconcile) { c.reconcile.left--; if (c.reconcile.left <= 0) { c.coh = Math.min(100, c.coh + CFG.coherence.reconcileGain + fx(S, civ, 'reconcileBonus')); c.reconcile = null; if (civId === 'you') log(S, 'you', `${c.name}: reconciliation complete (+${CFG.coherence.reconcileGain} Coherence).`, 1); } }
         c.lowTurns = c.coh < CFG.coherence.low ? c.lowTurns + 1 : 0;
         if (c.lowTurns >= CFG.coherence.crisisTurns && !c.crisis) { c.crisis = true; if (civId === 'you') log(S, 'you', `Local crisis in ${c.name}: output halved until Coherence recovers to 40. Reconcile or build a Sanctuary.`, 2); }
         if (c.crisis && c.coh >= 40) { c.crisis = false; if (civId === 'you') log(S, 'you', `${c.name} has recovered from its crisis.`, 1); }

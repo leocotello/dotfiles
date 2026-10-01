@@ -1,5 +1,5 @@
 // Endings, Chronicle and legacy options. Mechanical success is kept separate from its emotional cost.
-import { CFG, AMBITIONS, INSTITUTIONS, FACTIONS, LEGACIES, DISCOVERIES } from '../data/content.js';
+import { CFG, AMBITIONS, INSTITUTIONS, FACTIONS, LEGACIES, DISCOVERIES, ACHIEVEMENTS } from '../data/content.js';
 import { civCities, hasInst, effExposure, totalResonance } from './economy.js';
 import { evaluate } from './ambitions.js';
 import { RIVALS } from './state.js';
@@ -39,6 +39,16 @@ function chronicle(S, e) {
 }
 const list = (a) => a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1];
 
+// Achievements (checked once when a run ends). They unlock sidegrade founding options; see content.js.
+export function evaluateAchievements(S, e = S.ending) {
+  const you = S.civs.you; const earned = [];
+  if (!e) return earned;
+  if (e.success) earned.push('something_remains');
+  if (e.kind === 'final' && you.stats.kept >= 3 && you.stats.broken === 0) earned.push('every_promise');
+  if (e.success && !(you.stats.declared > 0) && you.stats.conquered === 0) earned.push('hands_unraised');
+  if (e.success && you.stats.lost > 0) earned.push('out_of_ashes');
+  return earned;
+}
 export function legacyOptions(S, e) {
   const you = S.civs.you; const cities = civCities(S, 'you'); const opts = [];
   const arc = cities.find(c => c.districts.some(d => d.type === 'archive'));

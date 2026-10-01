@@ -6,10 +6,12 @@ Honesty rule: **measured** = produced by running code in this repository; **esti
 
 | What | How | Result |
 |---|---|---|
-| Automated tests | `npm test` (`node --test tests/*.test.js`) | **46 / 46 passing** across `core`, `systems`, `design`, `simulation` |
+| Automated tests | `npm test` (`node --test tests/*.test.js`) | **47 / 47 passing** across `core`, `systems`, `design`, `simulation` |
 | Complete-game sweeps | `npm run simulate -- 30 all` (30 seeds × 5 play modes = 150 full 30-turn games, rotating traditions/dispositions) | **0 crashes**, no NaN/negative/absurd values, no deadlocked turns, every game ended with an ending |
 | In-test sweep | `tests/simulation.test.js`: 20 seeds × 2 modes, asserting no crash, turn advance each resolution, valid ranges, rival planner never throws, Resonance bounded | passing |
 | Real-UI run | headless Chromium (Playwright) via `npm run screenshots`: begins a run through the setup screen, stages orders by keyboard and canvas clicks, commits with `Enter`, council, discovery, empire, diplomacy, Quieting, ambitions, army forecast, full game to the Chronicle, legacy choice, next run (legacy ruin appears) | no console errors on any screen |
+| UI fuzz | `node tools/fuzz-ui.mjs <seed> <steps>`: seeded random clicks, hotkeys and map clicks inside the real page; 5 seeds, each played to a Chronicle (two via early collapse) | **0 console errors**, no dead ends (every run reached an ending) |
+| Save/resume in the browser | `node tools/resume-test.mjs`: stage a council choice at turn 6, quit, reload, Continue | turn, RNG state, staged orders, council offers, stocks **identical** |
 | Window / accessibility variants | 1024×640, 800×600, 140% text, `prefers-reduced-motion` | essential controls (End Turn, resources, Quieting chip) on-screen and no horizontal scroll in each; screenshots 15–18 |
 | Performance (headless Chromium, software rendering) | `node tools/profile.mjs`; `tests/simulation.test.js` | turn resolution **≈ 12 ms** mean (max ≈ 23–33 ms) including the three rival planners; map frame **≈ 3.3 ms**; side-panel build ≈ 1.8 ms; planning + resolution ≈ 10 ms/turn headless |
 

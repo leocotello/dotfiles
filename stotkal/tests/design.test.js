@@ -129,3 +129,19 @@ test('rival pact-breaking is surfaced with a concise explanation and costs reput
   const S = fresh('pact'); S.treaties.push({ id: 'p', kind: 'nonaggression', a: 'veil', b: 'you', start: 1, end: 9, active: true }); declareWar(S, 'veil', 'you', 'they are weak');
   const l = S.log.find(x => /broke the nonaggression pact/.test(x.text)); assert.ok(l && /reputation/i.test(l.text)); assert.ok(S.civs.veil.reputation < 0); assert.ok(atWar(S, 'veil', 'you'));
 });
+
+test('unlockable founding options are sidegrades earned through varied achievements (rivals never depend on them)', async () => {
+  const { validateContent } = await import('../src/data/validate.js'); assert.deepEqual(validateContent(), []);
+  const { evaluateAchievements } = await import('../src/sim/chronicle.js'); const { TRADITIONS, DISPOSITIONS } = await import('../src/data/content.js');
+  assert.equal(TRADITIONS.cartographers.unlock, 'something_remains'); assert.equal(DISPOSITIONS.mourner.unlock, 'every_promise');
+  const S = fresh('ach'); const Y = you(S); Y.stats.kept = 3; Y.stats.broken = 0; S.ending = { kind: 'final', success: false };
+  assert.deepEqual(evaluateAchievements(S), ['every_promise'], 'keeping promises is rewarded even in failure');
+  S.ending = { kind: 'final', success: true }; Y.stats.lost = 1; assert.deepEqual(evaluateAchievements(S).sort(), ['every_promise', 'hands_unraised', 'out_of_ashes', 'something_remains']);
+  Y.stats.declared = 1; assert.ok(!evaluateAchievements(S).includes('hands_unraised')); S.ending = { kind: 'collapse', success: false }; assert.deepEqual(evaluateAchievements(S), []);
+  // Salt Cartographers: cheaper Outposts, longer Survey, hungrier people. Mourner: stronger reconciliation, quieter Memory.
+  const C = fresh('cart', { tradition: 'cartographers' }); assert.equal(stage(C, 'you', { type: 'survey', q: cap(C).q, r: cap(C).r }).cmd.cost.mat, 0);
+  const out = Object.values(C.map.tiles).find(t => TERRAIN[t.t].passable && !t.city && !t.site && !t.owner && C.civs.you.obs[key(t.q, t.r)]); assert.equal(stage(C, 'you', { type: 'outpost', q: out.q, r: out.r }).cmd.cost.mat, 3);
+  const base = fresh('cart'); assert.ok(computeEconomy(C, 'you').net.sus === computeEconomy(base, 'you').net.sus - 2);
+  const M = fresh('mourn', { disp: 'mourner' }); const mc = cap(M); mc.coh = 40; M.civs.you.res.mat = 20; M.civs.you.res.ene = 20; assert.ok(stage(M, 'you', { type: 'reform', kind: 'reconcile', city: mc.id }).ok);
+  endTurn(M); endTurn(M); assert.ok(mc.coh >= 40 + 12 + 4 - 2, 'reconciliation restored extra Coherence: ' + mc.coh);
+});

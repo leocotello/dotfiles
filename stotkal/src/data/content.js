@@ -81,11 +81,21 @@ export const TRADITIONS = {
   circuit: { name: 'Children of the Circuit', blurb: 'Gain from connected infrastructure; suffer when networks break.',
     gain: '+1 Energy per Conduit; +1 Energy per extra connected city; cheaper first Conduit.', cost: 'A city cut off from the capital loses 5 Coherence.',
     fx: { conduitEne: 1, connectedEne: 1, disconnectedCoh: 5 }, startRes: {} },
+  cartographers: { name: 'Salt Cartographers', unlock: 'something_remains', blurb: 'Walkers of the mineral flats who map before they settle.',
+    gain: 'Survey range +1; Outposts cost 3 less Matter.', cost: 'A people on the move: −2 Sustenance per turn.',
+    fx: { surveyRange: 1, outpostDisc: 3, prodSus: -2 }, startRes: {} },
   gardeners: { name: 'Garden Custodians', blurb: 'Support embodied growth and low Resonance; slow heavy industry.',
     gain: '+1 Sustenance per Garden; Foundries add no Resonance; +1 housing per city.', cost: 'Foundries cost +2 Matter and take +1 turn.',
     fx: { gardenSus: 1, foundryRes: -1, foundryTime: 1, foundryMat: 2, housingEach: 1 }, startRes: {} },
 };
 
+// Unlockable founding options. They are sidegrades (a different cost/benefit shape), never strictly stronger, so losing does not require a grind.
+export const ACHIEVEMENTS = {
+  something_remains: { name: 'Something Remains', desc: 'Achieve any ambition.' },
+  every_promise: { name: 'Every Promise Kept', desc: 'Reach turn 30 with at least three agreements kept and none broken.' },
+  hands_unraised: { name: 'Hands Unraised', desc: 'Achieve an ambition without declaring war or conquering anything.' },
+  out_of_ashes: { name: 'Out of the Ashes', desc: 'Lose a settlement and still achieve an ambition.' },
+};
 export const DISPOSITIONS = {
   listener: { name: 'Listener', blurb: 'Improves negotiation; broken promises wound deeper.',
     gain: '+15 treaty acceptance; one free Negotiate every 6 turns.', cost: 'Double Coherence loss after broken promises.',
@@ -93,6 +103,9 @@ export const DISPOSITIONS = {
   architect: { name: 'Architect', blurb: 'Improves major projects but demands maintenance.',
     gain: 'Projects of 3+ turns finish 1 turn faster; Works cost -2 Matter.', cost: '+2 Energy upkeep per turn.',
     fx: { projTimeLong: -1, workDisc: 2, upkeepEne: 2 }, startRes: {} },
+  mourner: { name: 'Mourner', unlock: 'every_promise', blurb: 'Carries what was lost so that others need not carry it alone.',
+    gain: 'Reconciliation restores 4 more Coherence.', cost: 'The weight of it: −1 Memory per turn.',
+    fx: { reconcileBonus: 4, prodMem: -1 }, startRes: {} },
   pilgrim: { name: 'Pilgrim', blurb: 'Surveys and recovers more effectively; begins with less Matter.',
     gain: 'Survey range +1; salvage and investigation rewards +50%.', cost: 'Starts with 4 less Matter.',
     fx: { surveyRange: 1, salvageMult: 0.5 }, startRes: { mat: -4 } },

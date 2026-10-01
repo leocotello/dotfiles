@@ -29,7 +29,7 @@ Numbers are balancing hypotheses in `src/data/content.js`. "Spec" = the design b
 * Rivers (conduits and infrastructure tiles carry the "economic connection" role).
 * Maritime ferry crossings (Maritime Passage gives coast Energy only; the blurb was corrected after an audit found the claim unsupported).
 * Trade with independent settlements; the visible spacing exception for founding; the Common Signal's bespoke "network access for citizens" offer; special-institution reconciliation alternatives (only basic reconciliation, Sanctuaries and honoured requests exist).
-* Unlockable founding options/alternate rivals/world conditions (the persistence layer stores history and one legacy; unlock content is planned expansion).
+* Unlocks are minimal: four achievements and two sidegrade founding options (Salt Cartographers, Mourner). Additional opportunity chains, alternate rivals and world conditions are planned expansion.
 * Council opportunity chains (offers are single-step; categories you pick influence later offers).
 * Licensed or recorded audio: all audio is synthesised at runtime.
 

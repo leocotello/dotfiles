@@ -23,7 +23,8 @@ export class Renderer {
   constructor(canvas) { this.c = canvas; this.g = canvas.getContext('2d'); this.view = { zoom: 1, px: 0, py: 0 }; this.panelW = 0; this.R = 40; this.ox = 0; this.oy = 0; this.t = 0; this.sky = null; }
   resize(panelW, topH, botH) {
     const dpr = Math.min(2, window.devicePixelRatio || 1); const w = this.c.clientWidth, h = this.c.clientHeight;
-    this.c.width = w * dpr; this.c.height = h * dpr; this.g.setTransform(dpr, 0, 0, dpr, 0, 0); this.W = w; this.H = h; this.panelW = panelW; this.topH = topH; this.botH = botH; this.fit();
+    if (this.c.width !== Math.round(w * dpr) || this.c.height !== Math.round(h * dpr)) { this.c.width = Math.round(w * dpr); this.c.height = Math.round(h * dpr); }
+    this.g.setTransform(dpr, 0, 0, dpr, 0, 0); this.W = w; this.H = h; this.panelW = panelW; this.topH = topH; this.botH = botH; this.fit();
   }
   fit() {
     const aw = this.W - this.panelW - 24, ah = this.H - this.topH - this.botH - 20;

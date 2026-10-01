@@ -93,7 +93,8 @@ table.t { width: 100%; border-collapse: collapse; font-size: .84rem; } table.t t
 .logline { font-size: .84rem; padding: 3px 0; border-bottom: 1px dotted var(--line); } .logline .tn { color: var(--ink2); font-variant-numeric: tabular-nums; margin-right: 6px; } .logline.i2 { font-weight: 600; } .logline.i0 { color: var(--ink2); }
 .titlescreen { text-align: center; } .titlescreen h1 { font-size: 2.6rem; letter-spacing: .3em; text-transform: uppercase; margin: 6px 0 0; } .titlescreen .sub { letter-spacing: .5em; text-transform: uppercase; color: var(--rose-d); font-size: .9rem; }
 .pickrow { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap: 10px; margin: 8px 0 14px; text-align: left; }
-.pick { border: 1px solid var(--line); border-radius: 12px; padding: 10px; background: rgba(255,255,255,.7); text-align: left; } .pick.on { box-shadow: 0 0 0 3px var(--ink) inset; background: rgba(255,193,223,.3); }
+.pick { border: 1px solid var(--line); border-radius: 12px; padding: 10px; background: rgba(255,255,255,.7); text-align: left; display: flex; flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 2px; }
+.pick:disabled { opacity: .55; cursor: not-allowed; background: rgba(230,224,210,.5); } .pick.on { box-shadow: 0 0 0 3px var(--ink) inset; background: rgba(255,193,223,.3); }
 .pick b { font-family: var(--serif); font-size: 1.05rem; } .pick .g { color: var(--good); font-size: .85rem; display: block; margin-top: 4px; } .pick .c { color: var(--bad); font-size: .85rem; display: block; }
 
 /* tooltip & toast */

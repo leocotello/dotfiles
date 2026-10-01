@@ -1,5 +1,5 @@
 // Startup validation of editable content: references, prerequisites, ids. Returns a list of problems (empty = ok).
-import { CFG, TERRAIN, DISTRICTS, WORKS, TRADITIONS, DISPOSITIONS, TECHS, DISCOVERIES, INSTITUTIONS, OPPORTUNITIES, AMBITIONS, FACTIONS, ROLES, LEGACIES, COMBOS } from './content.js';
+import { CFG, TERRAIN, DISTRICTS, WORKS, TRADITIONS, DISPOSITIONS, TECHS, DISCOVERIES, INSTITUTIONS, OPPORTUNITIES, AMBITIONS, FACTIONS, ROLES, LEGACIES, COMBOS, ACHIEVEMENTS } from './content.js';
 
 export function validateContent() {
   const errs = []; const e = (m) => errs.push(m);
@@ -15,6 +15,8 @@ export function validateContent() {
   for (const [id, w] of Object.entries(WORKS)) { if (w.needsTech && !TECHS[w.needsTech]) e(`work ${id}: bad tech`); if (w.needsDistrict && !DISTRICTS[w.needsDistrict]) e(`work ${id}: bad district`); }
   for (const [id, c] of Object.entries(COMBOS)) { if (!INSTITUTIONS[c.needs.inst]) e(`combo ${id}: bad institution`); if (!TECHS[c.needs.tech]) e(`combo ${id}: bad tech`); }
   for (const t of Object.values(TECHS)) for (const u of t.unlock || []) { if (u.startsWith('work:') && !WORKS[u.slice(5)]) e(`tech unlock: unknown work ${u}`); }
+  for (const grp of [TRADITIONS, DISPOSITIONS]) for (const [id, o] of Object.entries(grp)) if (o.unlock && !ACHIEVEMENTS[o.unlock]) e(`${id}: unknown achievement ${o.unlock}`);
+  for (const f of Object.values(FACTIONS)) if (TRADITIONS[f.tradition].unlock || DISPOSITIONS[f.disposition].unlock) e('rivals must not depend on unlockable options');
   if (CFG.councilTurns.length !== 9) e('council schedule must have nine sessions');
   if (Object.keys(OPPORTUNITIES).length < 12) e('need at least twelve council opportunities');
   // every ambition must be reachable in principle: all required techs exist & chain is acyclic (checked above); required works exist

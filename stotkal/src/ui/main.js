@@ -5,6 +5,7 @@ import { newRun, ageOf, revealRange } from '../sim/state.js';
 import { endTurn } from '../sim/resolve.js';
 import { stage, unstage, validate, setAlloc, setPolicy, setEmergency, ordersLeft } from '../sim/commands.js';
 import { petition, openCouncil, isCouncilTurn } from '../sim/council.js';
+import { evaluateAchievements } from '../sim/chronicle.js';
 import { civCities, civArmies, tileAt } from '../sim/economy.js';
 import { armyPath } from '../sim/army.js';
 import { forecast } from '../sim/combat.js';
@@ -77,7 +78,7 @@ function continueRun() {
 const isCouncilDue = () => { const S = app.S; return !!(S.council.offers && S.council.turn === S.turn && !S.council.chosen && !S.staged.you.some(c => c.type === 'council')); };
 function persist(now) { if (!app.S) return; clearTimeout(saveTimer); const go = () => { if (app.S.over) return; saveToSlot(app.S, 'auto'); }; if (now) go(); else saveTimer = setTimeout(go, 350); }
 function openEnding() {
-  const S = app.S; if (!S.ending.recorded) { S.ending.recorded = true; app.profile.runs++; app.profile.history.push({ seed: S.seed, turn: S.turn, ambition: S.ending.ambition, success: S.ending.success, head: S.ending.chronicle.head, at: Date.now() }); app.profile.history = app.profile.history.slice(-30); saveProfile(app.profile); deleteSlot('auto'); }
+  const S = app.S; if (!S.ending.recorded) { S.ending.recorded = true; const got = evaluateAchievements(S); app.profile.achievements = app.profile.achievements || []; S.ending.newAchievements = got.filter(id => !app.profile.achievements.includes(id)); app.profile.achievements = [...new Set([...app.profile.achievements, ...got])]; app.profile.runs++; app.profile.history.push({ seed: S.seed, turn: S.turn, ambition: S.ending.ambition, success: S.ending.success, head: S.ending.chronicle.head, at: Date.now() }); app.profile.history = app.profile.history.slice(-30); saveProfile(app.profile); deleteSlot('auto'); }
   app.ui.legacyPick = -1; app.ui.modal = { type: 'ending' };
 }
 function commitTurn() {

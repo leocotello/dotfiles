@@ -75,7 +75,7 @@ export function breakTreaty(S, breaker, treaty, why) {
 export function declareWar(S, a, b, why) {
   for (const t of S.treaties.filter(t => t.active && (t.kind === 'nonaggression') && ((t.a === a && t.b === b) || (t.a === b && t.b === a)))) breakTreaty(S, a, t, 'declared war');
   for (const t of S.treaties.filter(t => t.active && ((t.a === a && t.b === b) || (t.a === b && t.b === a)))) t.active = false;
-  S.wars[pairKey(a, b)] = S.turn;
+  S.wars[pairKey(a, b)] = S.turn; S.civs[a].stats.declared = (S.civs[a].stats.declared || 0) + 1;
   relMemAdd(S, a, b, -10); relMemAdd(S, b, a, -10);
   log(S, a, `${S.civs[a].name} declared war on ${S.civs[b].name}${why ? ': ' + why : ''}.`, 2, { pub: true });
 }
