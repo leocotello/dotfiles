@@ -124,10 +124,18 @@ function validTargets(kind, extra) {
   }
   return set;
 }
+// Tiles where a city could be founded once connected territory reaches them (they only fail the 'touch connected territory' rule)
+function potentialSites() {
+  const S = app.S; const out = new Set(); const src = civCities(S, 'you').sort((a, b) => b.pop - a.pop)[0]; if (!src) return out;
+  for (const t of Object.values(S.map.tiles)) { const err = validate(S, 'you', { type: 'city', q: t.q, r: t.r, source: src.id }); if (err && /touch territory/.test(err)) out.add(key(t.q, t.r)); }
+  return out;
+}
 function startTarget(kind, extra = {}) {
   const S = app.S; const set = validTargets(kind, extra);
   if (!set.size) { toast('There is no valid target for that right now.', 'err'); return; }
-  app.ui.targeting = { kind, ...extra, targets: set }; app.ui.sheet = app.ui.sheet === 'context' ? 'context' : app.ui.sheet; toast('Choose a highlighted tile · Esc cancels'); dirty = true;
+  let opens = null, potential = null;
+  if (kind === 'claim') { potential = potentialSites(); opens = new Set([...set].filter(k => { const [q, r] = k.split(',').map(Number); return neighbors(q, r).some(n => potential.has(key(n.q, n.r))); })); }
+  app.ui.targeting = { kind, ...extra, targets: set, opens, potential }; app.ui.sheet = app.ui.sheet === 'context' ? 'context' : app.ui.sheet; toast(kind === 'claim' ? 'Choose a tile · ⌂ marks tiles that bring a future city site within reach · Esc cancels' : 'Choose a highlighted tile · Esc cancels'); dirty = true;
 }
 function finishTarget(tile) {
   const S = app.S; const tg = app.ui.targeting; let cmd;

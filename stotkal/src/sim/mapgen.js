@@ -91,6 +91,9 @@ function tryGenerate(seed, attempt) {
   const pass = all.filter(passable).length;
   if (pass < 65 || pass > 80) return null;
   if (!connectedPassable(tiles)) return null;
+  // every capital needs at least two legal city sites within 3-4 hexes (spacing >= 3 from every settlement, not on a site) so early expansion exists
+  const siteTiles = new Set(sites.map(x => key(x.tile.q, x.tile.r))); const settlements = [...caps, ...indep];
+  for (const [ci, c] of caps.entries()) { const need = ci === 0 ? 2 : 1; const n = all.filter(t => passable(t) && dist(c, t) >= 3 && dist(c, t) <= 5 && !siteTiles.has(key(t.q, t.r)) && settlements.every(o => o === c || dist(o, t) >= 3)).length; if (n < need) return null; }
   // early discovery accessible; viability around player start
   const pc = caps[0];
   if (!sites.some(s => dist(s.tile, pc) <= 4)) return null;

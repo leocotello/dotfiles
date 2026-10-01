@@ -84,10 +84,10 @@ export function nearestCity(S, civId, pos, maxD = 99, exclude) {
 export function protectionBands(S, city) {
   const civ = S.civs[city.owner]; if (!civ) return 0;
   let bands = 0;
-  const stabBands = 1 + (hasTech(civ, 'regional_stabilization') ? 1 : 0);
+  const stabBands = 1 + fx(S, civ, 'stabBands');
   if (city.works.stabilization) bands += stabBands;
   if (city.works.vessel) bands += 1;
-  for (const sl of civ.inst) if (sl && sl.id === 'cradle_seal') { const site = S.sites[sl.site]; const n = site && nearestCity(S, city.owner, site); if (n && n.id === city.id) bands += 1; }
+  for (const sl of civ.inst) if (sl && INSTITUTIONS[sl.id].fx.protectNearest) { const site = S.sites[sl.site]; const n = site && nearestCity(S, city.owner, site); if (n && n.id === city.id) bands += 1; }
   // adjacent connected settlement protected by a neighbour's Stabilization (one band)
   const comp = components(S, city.owner);
   for (const o of civCities(S, city.owner)) {
@@ -95,7 +95,7 @@ export function protectionBands(S, city) {
     const near = nearestCity(S, city.owner, o, CFG.citySpacing + 1, o.id);
     if (near && near.id === city.id && comp[o.id] === comp[city.id]) bands += 1;
   }
-  if (civ.flagsProtectCap && civ.cap === city.id) bands += 1;
+  if (fx(S, civ, 'protectCapital') > 0 && civ.cap === city.id) bands += 1;
   return bands;
 }
 export function effExposure(S, city) {
@@ -130,7 +130,6 @@ export function districtOut(S, civ, city, d, comp) {
     const infra = cityTiles(S, city).filter(t => t.t === 'infra').length;
     out.ene += fx(S, civ, 'conduitEne') + (infra >= 2 ? 1 : 0);
     if (city.disabled.conduit > 0) { out.ene = 0; }
-    if (fx(S, civ, 'connectedEne') > 0 && civCities(S, civ.id).length > 1) out.ene += fx(S, civ, 'connectedEne') * (Object.values(comp || {}).filter(c => c === comp?.[civ.cap]).length - 1 > 0 ? 1 : 0);
   }
   let res = 0;
   if (DISTRICTS[d.type].resonance) res = Math.max(0, DISTRICTS[d.type].resonance + fx(S, civ, 'foundryRes'));
@@ -261,7 +260,7 @@ export function cohBreakdown(S, city, econ) {
   const cc = fx(S, civ, 'cohConnected');
   if (cc && ncity > 1 && conn) items.push({ label: 'Connected network', amt: cc });
   const bl = fx(S, civ, 'brokenLinkCoh');
-  if (bl && ncity > 1 && !conn && !civ.flagsNetRepair) items.push({ label: 'Broken capital connection', amt: -bl });
+  if (bl && ncity > 1 && !conn && !(fx(S, civ, 'netRepairInstant') > 0)) items.push({ label: 'Broken capital connection', amt: -bl });
   const dc = fx(S, civ, 'disconnectedCoh');
   if (dc && ncity > 1 && !conn) items.push({ label: 'Cut off from the capital', amt: -dc });
   if (city.capital) { const c = fx(S, civ, 'capCohTurn'); if (c) items.push({ label: 'Verification fatigue', amt: c }); }

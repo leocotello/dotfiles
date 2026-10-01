@@ -1,12 +1,12 @@
 // Ambition requirements and success evaluation. Rivals use the same function.
-import { CFG, AMBITIONS, TECHS, DISTRICTS } from '../data/content.js';
+import { CFG, AMBITIONS, TECHS, DISTRICTS, INSTITUTIONS } from '../data/content.js';
 import { key } from './hex.js';
 import { civCities, hasTech, hasInst, components, connectedToCapital, effExposure, totalResonance, hasTreaty, tileAt, fx } from './economy.js';
 
 const settlements = (S, civ) => civCities(S, civ.id).filter(c => !c.federated || c.fedMet !== false);
 export function shelters(S, civ) {
   let n = civCities(S, civ.id).reduce((a, c) => a + (c.works.vessel ? 1 : 0) + (c.works.stabilization ? 1 : 0), 0);
-  if (hasInst(civ, 'cradle_seal')) n++; return n;
+  n += civ.inst.filter(s => s && INSTITUTIONS[s.id].fx.shelter).length; return n;
 }
 export function sealedArchives(S, civ) {
   let n = civCities(S, civ.id).filter(c => c.works.seal && c.districts.some(d => d.type === 'archive')).length;
@@ -42,7 +42,7 @@ export function evaluate(S, civId, id, final = false) {
     parts.push(part('Protected (sealed) Archives', sealedArchives(S, civ), 2));
     const cats = new Set(civ.fragments.map(f => f.cat)); parts.push(part('Named fragments', civ.fragments.length, 5)); parts.push(part('Fragment source categories', cats.size, 3));
     parts.push(part('Archive Sealing researched', hasTech(civ, 'archive_sealing') ? 1 : 0, 1));
-    parts.push(part('Functioning protected record', sealedArchives(S, civ) >= 1 ? 1 : 0, 1, undefined, 'Fragments are preserved, not spent.'));
+    parts.push(part('Functioning protected record', (sealedArchives(S, civ) >= 1 || fx(S, civ, 'protectedRecord') > 0) ? 1 : 0, 1, undefined, 'A sealed Archive or the Monolith record node. Fragments are preserved, not spent.'));
   } else if (id === 'break') {
     parts.push(part('Resonance Analysis', hasTech(civ, 'resonance_analysis') ? 1 : 0, 1)); parts.push(part('Cycle Interruption', hasTech(civ, 'cycle_interruption') ? 1 : 0, 1));
     parts.push(part('Anomaly sites investigated', civ.investigated, 3)); parts.push(part('Stabilization projects complete', civ.stabDone || 0, 2));

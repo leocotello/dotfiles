@@ -13,6 +13,13 @@ export function forecastLevel(S, civId) {
   if (t >= CFG.quieting.firstForecast) return 1;
   return 0;
 }
+// Resonance Analysis: a plain linear projection from the recent history of the world total (shown, never hidden-modified).
+export function resonanceProjection(S, civId = 'you') {
+  if (!(fx(S, S.civs[civId], 'resonanceSight') > 0)) return null;
+  const h = (S.resHistory || []).slice(-4); if (h.length < 2) return null;
+  const rate = (h[h.length - 1] - h[0]) / (h.length - 1); const left = CFG.turns - S.turn + 1;
+  return { rate: Math.round(rate * 10) / 10, final: Math.max(0, Math.round(totalResonance(S) + rate * left)) };
+}
 export function regionReport(S, civId) {
   const lvl = forecastLevel(S, civId);
   return S.regions.map((r, i) => {

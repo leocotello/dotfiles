@@ -216,7 +216,7 @@ const VALIDATE = {
     if (c.kind === 'research') { const t = TECHS[c.tech]; if (!t) return 'Unknown technology.'; if (civ.techs[c.tech]) return 'Already known.'; if (civ.research.target === c.tech) return 'Already the active program.'; for (const p of t.pre) if (!civ.techs[p]) return `Requires ${TECHS[p].name}.`; return null; }
     if (c.kind === 'reconcile') { const city = myCity(S, civ, c.city); if (!city) return 'Not your city.'; if (city.reconcile) return 'A reconciliation is already underway.'; return null; }
     if (c.kind === 'restore') {
-      if (!hasInst(civ, 'voices')) return 'Requires Release the Voices.'; if (S.turn - civ.restoreCd < restoreEvery(S, civ)) return `Restoration needs ${restoreEvery(S, civ) - (S.turn - civ.restoreCd)} more turn(s) to recover.`;
+      if (!(fx(S, civ, 'restoreAction') > 0)) return 'Requires Release the Voices.'; if (S.turn - civ.restoreCd < restoreEvery(S, civ)) return `Restoration needs ${restoreEvery(S, civ) - (S.turn - civ.restoreCd)} more turn(s) to recover.`;
       if (!civCities(S, civ.id).some(x => x.pop < cityHousing(S, civ, x))) return 'No city has room.'; return null;
     }
     if (c.kind === 'ambition_change') { if (!civ.ambition) return 'No ambition committed.'; if (civ.ambitionChanged) return 'Already changed once.'; if (S.turn > 23) return 'Too late to change (through turn 23).'; if (!AMBITIONS[c.amb] || c.amb === civ.ambition.id) return 'Choose a different ambition.'; return null; }

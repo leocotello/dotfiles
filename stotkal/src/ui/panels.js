@@ -5,7 +5,7 @@ import { OWN } from './render.js';
 import { key, dist } from '../sim/hex.js';
 import { RES, computeEconomy, cohBreakdown, cityHousing, civCities, civArmies, hasInst, hasTech, fx, fxSources, components, connectedToCapital, slotCount, protectionBands, effExposure, severity, totalResonance, civResonance, tileAt, hasTreaty, sources } from '../sim/economy.js';
 import { available, reserved, ordersLeft, ordersUsed, validate, costOf, projectCost, projectTurns, projectDef, techReq, instCost, recruitCost, restoreEvery, isUnlocked, fmtCost, freeNegInterval, offerCost } from '../sim/commands.js';
-import { forecastLevel, regionReport, projection } from '../sim/quieting.js';
+import { forecastLevel, regionReport, projection, resonanceProjection } from '../sim/quieting.js';
 import { relation, evaluateTreaty, power, contact } from '../sim/diplomacy.js';
 import { evaluate, shelters, sealedArchives, participating, spireAccess } from '../sim/ambitions.js';
 import { atWar, pairKey, ageOf } from '../sim/state.js';
@@ -254,6 +254,7 @@ function quietSheet(app) {
   if (lvl === 0) return h + `<p class="dim">Faint tremors only. A clear forecast arrives on turn ${CFG.quieting.firstForecast}; exact severity and regions by turn ${CFG.quieting.revealTurn}. Meanwhile, Foundries add Resonance: keep an eye on it.</p>${resonanceTable(S, false)}`;
   h += `<h3>Severity</h3><div class="card"><b>${lvl >= 2 ? sev + ' of 3' : 'reading…'}</b><div class="tiny">Baseline 1, +1 at 30 total Resonance, +1 at 60. Total Resonance now: <b>${tot}</b>. Break the Recurrence needs it below ${CFG.quieting.interruptThreshold} for the final 3 turns.</div><div class="bar"><i style="width:${Math.min(100, tot)}%"></i></div></div>`;
   h += resonanceTable(S, true);
+  if (hasTech(you, 'resonance_analysis')) { const rp = resonanceProjection(S, 'you'); h += rp ? `<div class="card"><b>Resonance Analysis</b><div class="tiny">Current rate ${sign(rp.rate)}/turn → projected total <b>${rp.final}</b> on turn ${CFG.turns} ${rp.final >= CFG.quieting.interruptThreshold ? '<span class="bad">(above the interruption threshold of ' + CFG.quieting.interruptThreshold + ')</span>' : '<span class="good">(below the interruption threshold)</span>'}.</div></div>` : ''; } else h += '<p class="tiny dim">Resonance Analysis (final age) adds a projection of the total from current operations.</p>';
   const proj = projection(S, 'you');
   h += `<h3>Your cities at the final escalation</h3>${proj.rows.map(r => `<div class="card"><b>${esc(r.city.name)}</b> · ${esc(r.region)} · exposure ${lvl >= 2 ? r.exposure : (r.exposure ? '≥1' : 0)} · protection ${r.protectedBy} → <b class="${r.eff ? 'bad' : 'good'}">${r.eff ? 'exposed' : 'protected'}</b>${r.eff ? `<div class="tiny bad">Likely: ${r.losses.popLoss ? '−' + r.losses.popLoss + ' population, ' : ''}−${r.losses.cohLoss} Coherence, powered output ×${r.losses.outMult.toFixed(2)}${r.losses.archives ? ', an unsealed Archive is lost' : ''}.</div><div class="tiny">Responses: Stabilization Works (12 ◆ 8 ⚡, 3 turns; −10 Resonance; protects this city and a nearby connected one) · Continuity Vessel · Archive Seal · lower your Resonance.</div>` : ''}</div>`).join('')}`;
   h += `<h3>Regions</h3>${regionReport(S, 'you').map(r => `<div class="tiny">${esc(r.name)}: ${r.exposure === null ? '?' : r.exact ? ['safe', 'exposed', 'highly exposed'][r.exposure] : (r.exposure ? 'exposed' : 'safe')} · Resonance ${r.total}</div>`).join('')}`;
@@ -299,7 +300,7 @@ export function guideCard(app) {
   let msg;
   if (!done.survey) msg = `<b>1 · Look around.</b> Select a tile you can see and press <b>Survey</b> (<kbd>S</kbd>). Surveys cost an order but no resources, and reveal nearby ground.`;
   else if (!done.dev) msg = `<b>2 · Build.</b> Select your capital and choose <b>Develop…</b> A Garden or Archive finishes in 2 turns. Projects keep working without more orders.`;
-  else if (!done.city) msg = `<b>3 · Settle.</b> Cities must be 3+ hexes apart. First <b>Claim</b> a bridging tile (2 ◆), then <b>Found city</b> next turn. Your orders are limited: 3 per turn.`;
+  else if (!done.city) msg = `<b>3 · Settle.</b> Cities must be 3+ hexes apart and on explored ground. <b>Survey</b> first, then <b>Claim</b> (<kbd>X</kbd>) a tile marked <b>⌂+</b> (2 ◆), then <b>Found city</b> (<kbd>F</kbd>). Your orders are limited: 3 per turn.`;
   else if (!done.disc) msg = `<b>4 · Interpret.</b> A pulsing ring marks a discovery. Open it, read the three readings (facts, interpretations, unknowns), and choose, or take the modest salvage.`;
   else msg = `<b>5 · Long goal.</b> Open <b>Ambition</b> to preview all four endings. You commit between turns 16–21. The Quieting forecast arrives on turn 12, and it is survivable if you prepare.`;
   return `<div class="guide" role="note">${msg}<div class="row"><span class="tiny dim">Tutorial · turns 1–8</span>${btn('guideoff', 'Hide', { cls: 'sm ghost' })}</div></div>`;
@@ -352,6 +353,7 @@ function commitHtml(app) {
   const warns = []; if (e.deficit) warns.push(`Sustenance deficit of ${e.deficit} next turn: ${Object.keys(e.shortCities).map(id => S.cities[id].name).join(', ')} lose Coherence.`); if (e.paused.length) warns.push(`${e.paused.length} powered structure(s) will pause for lack of Energy.`);
   const idleCities = civCities(S, 'you').filter(c => !c.project && !cmds.some(x => x.type === 'develop' && x.city === c.id)); if (idleCities.length) warns.push(`Idle (no project): ${idleCities.map(c => c.name).join(', ')}.`);
   if (!you.research.target && !cmds.some(c => c.kind === 'research')) warns.push('No research program is active.');
+  if (S.council.offers && S.council.turn === S.turn && !S.council.chosen && !cmds.some(c => c.type === 'council')) warns.push('A council session is open and no choice is staged (passing is allowed).');
   if (L > 0) warns.push(`${L} order${L === 1 ? '' : 's'} unused. Skipping is allowed.`);
   const next = {}; for (const k of RES) next[k] = you.res[k] - rs[k] + e.net[k];
   return `<h2>Commit this turn?</h2><p class="tiny dim">Everything below can still be revised. Nothing is spent until you commit.</p>

@@ -149,3 +149,14 @@ test('capital connectivity & supply: separated cities are not connected merely b
   const far2 = makeCity(S, 'you', far.q, far.r, { name: 'Faraway' });
   const comp = components(S, 'you'); assert.notEqual(comp[c.id], comp[far2.id]);
 });
+
+test('data integrity: every modifier key declared in content is read by the simulation (no dead modifiers)', async () => {
+  const fs = await import('node:fs'); const C = await import('../src/data/content.js');
+  const keys = new Set(); const add = (fx) => { if (fx) for (const k of Object.keys(fx)) keys.add(k); };
+  for (const grp of [C.TRADITIONS, C.DISPOSITIONS, C.TECHS, C.INSTITUTIONS, C.COMBOS]) for (const o of Object.values(grp)) add(o.fx);
+  for (const o of Object.values(C.OPPORTUNITIES)) for (const f of o.fx) if (f.op === 'mod') add(f.fx);
+  const src = fs.readdirSync(new URL('../src/sim/', import.meta.url)).filter(f => f.endsWith('.js')).map(f => fs.readFileSync(new URL('../src/sim/' + f, import.meta.url), 'utf8')).join('\n');
+  const prod = { prodSus: 1, prodMat: 1, prodEne: 1, prodMem: 1 }; // read through 'prod' + capitalised resource name
+  const dead = [...keys].filter(k => !prod[k] && !new RegExp('\\b' + k + '\\b').test(src));
+  assert.deepEqual(dead, [], 'dead modifier keys: ' + dead.join(', '));
+});

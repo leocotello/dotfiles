@@ -230,7 +230,9 @@ export class Renderer {
   }
   drawTileOverlay(g, S, t, you, ui) {
     const k = key(t.q, t.r); const { x, y } = this.xy(t.q, t.r); const R = this.R; const e = (H[t.t] || 0) * R / 40;
-    if (ui.targets) { const ok = ui.targets.has(k); this.hexPath(g, x, y, R * 0.94, e); if (ok) { g.strokeStyle = '#222'; g.lineWidth = 2.4; g.setLineDash([5, 3]); g.stroke(); g.setLineDash([]); g.fillStyle = 'rgba(255,255,255,0.22)'; g.fill(); } else if (you.seen[k]) { g.fillStyle = 'rgba(40,44,64,0.28)'; g.fill(); } }
+    if (ui.targeting && ui.targeting.potential && ui.targeting.potential.has(k)) { g.save(); g.fillStyle = 'rgba(34,37,46,0.75)'; g.font = `bold ${Math.max(11, R * 0.34)}px system-ui`; g.textAlign = 'center'; g.fillText('⌂', x, y - e + R * 0.1); g.restore(); }
+    if (ui.targeting && ui.targeting.opens && ui.targeting.opens.has(k)) { g.save(); g.fillStyle = '#b8567f'; g.strokeStyle = '#fff'; g.lineWidth = 3; g.font = `bold ${Math.max(12, R * 0.4)}px system-ui`; g.textAlign = 'center'; g.strokeText('⌂+', x, y - e + R * 0.12); g.fillText('⌂+', x, y - e + R * 0.12); g.restore(); }
+    if (ui.targeting) { const ok = ui.targeting.targets.has(k); this.hexPath(g, x, y, R * 0.94, e); if (ok) { g.strokeStyle = '#222'; g.lineWidth = 2.4; g.setLineDash([5, 3]); g.stroke(); g.setLineDash([]); g.fillStyle = 'rgba(255,255,255,0.22)'; g.fill(); } else if (you.seen[k]) { g.fillStyle = 'rgba(40,44,64,0.28)'; g.fill(); } }
     if (ui.sel && ui.sel.q === t.q && ui.sel.r === t.r) { this.hexPath(g, x, y, R * 0.98, e); g.strokeStyle = '#22252e'; g.lineWidth = 3; g.stroke(); this.hexPath(g, x, y, R * 0.92, e); g.strokeStyle = '#FFC1DF'; g.lineWidth = 2; g.stroke(); }
     if (ui.hover && ui.hover.q === t.q && ui.hover.r === t.r) { this.hexPath(g, x, y, R * 0.98, e); g.strokeStyle = 'rgba(34,37,46,0.55)'; g.lineWidth = 1.6; g.stroke(); }
   }

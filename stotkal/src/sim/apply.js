@@ -36,8 +36,8 @@ export function installInstitution(S, civ, instId, slot, siteId) {
   if (old) { civ.instHistory.push({ id: old.id, replaced: S.turn }); for (const c of cities) c.coh = Math.max(0, c.coh - 4); if (civ.id === 'you') { log(S, 'you', `Transition: ${INSTITUTIONS[old.id].name} was replaced. -4 Coherence in every city; the memory of it remains in the Chronicle.`, 2); S.chronicle.push({ turn: S.turn, text: `You set aside ${INSTITUTIONS[old.id].name}.`, tag: 'replaced' }); } }
   const others = civ.inst.filter((x, i) => x && i !== slot).map(x => INSTITUTIONS[x.id]);
   const clash = others.some(o => o.conflicts.some(t => I.tags.includes(t)) || I.conflicts.some(t => o.tags.includes(t)));
-  if (clash) { const loss = 6 * (1 + (civ.tradition === 'keepers' && I.tags.includes('forced') ? 1 : 0)); for (const c of cities) c.coh = Math.max(0, c.coh - loss); if (civ.id === 'you') log(S, 'you', `Incompatible reform: -${loss} Coherence in every city, once.`, 2); }
-  else if (I.tags.includes('forced') && civ.tradition === 'keepers') { for (const c of cities) c.coh = Math.max(0, c.coh - 4); }
+  if (clash) { for (const c of cities) c.coh = Math.max(0, c.coh - 6); if (civ.id === 'you') log(S, 'you', 'Incompatible reform: -6 Coherence in every city, once.', 2); }
+  if (civ.tradition === 'keepers' && (I.tags.includes('forced') || I.tags.includes('collective'))) { for (const c of cities) c.coh = Math.max(0, c.coh - 4); if (civ.id === 'you') log(S, 'you', 'Keepers of Names resist forced integration: -4 Coherence in every city.', 2); }
   if (civ.flags.echo && !civ.flags.echoUsed) { civ.flags.echoUsed = true; for (const c of cities) c.coh = Math.max(0, c.coh - 4); if (civ.id === 'you') log(S, 'you', 'The echo of an older institution leaves a scar: -4 Coherence in every city.', 1); }
   civ.inst[slot] = { id: instId, site: siteId || null, turn: S.turn };
   const oi = I.onInstall || {};

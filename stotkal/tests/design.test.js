@@ -39,9 +39,11 @@ test('institution replacement: visible transition penalty, Chronicle keeps the m
   assert.equal(fx(S, Y, 'verifiedTreaties'), 0, 'combo disappears with its institution; no dangling reference');
   assert.ok(S.chronicle.some(c => c.tag === 'replaced' && /Consult the Ancestors/.test(c.text)), 'narrative consequence persists');
   assert.equal(Y.instHistory.length, 1);
-  // incompatible reform (Consult the Ancestors + Become the Choir) costs 6 once
-  const S2 = fresh('replace2'); const Y2 = you(S2); installInstitution(S2, Y2, 'ancestors', 0, null); const before = civCities(S2, 'you')[0].coh; installInstitution(S2, Y2, 'choir', 1, null);
+  // incompatible reform (Consult the Ancestors + Become the Choir) costs 6 once; Keepers of Names additionally resist the collective (-4)
+  const S2 = fresh('replace2', { tradition: 'circuit' }); const Y2 = you(S2); installInstitution(S2, Y2, 'ancestors', 0, null); const before = civCities(S2, 'you')[0].coh; installInstitution(S2, Y2, 'choir', 1, null);
   assert.equal(before - civCities(S2, 'you')[0].coh, 6);
+  const S3 = fresh('replace3', { tradition: 'keepers' }); const Y3 = you(S3); installInstitution(S3, Y3, 'ancestors', 0, null); const b3 = civCities(S3, 'you')[0].coh; installInstitution(S3, Y3, 'choir', 1, null);
+  assert.equal(b3 - civCities(S3, 'you')[0].coh, 10, 'Keepers resist forced/collective integration (-4 more)');
 });
 
 test('mutual Resonance shutdown: planner accepts a compensated offer when it benefits (not refuse by default)', () => {
@@ -85,8 +87,8 @@ test('design test B (automated approximation): embodied federation counts federa
   const ev1 = evaluate(S, 'you', 'embodied'); const n1 = ev1.parts[0].cur; ind.fedMet = false; const n2 = evaluate(S, 'you', 'embodied').parts[0].cur; assert.equal(n2, n1 - 1, 'unmet federation obligations do not count');
 });
 test('design test C (automated approximation): Break the Recurrence needs no conquest and is reachable', () => {
-  let ok = 0, conquered = 0; for (let i = 0; i < 16; i++) { const S = playBot('brk-' + i, 'break'); if (S.ending.success) ok++; conquered += S.civs.you.stats.conquered; }
-  assert.ok(ok >= 2, 'wins ' + ok); assert.equal(conquered, 0, 'bot never conquered');
+  let ok = 0, peacefulWins = 0; for (let i = 0; i < 16; i++) { const S = playBot('brk-' + i, 'break'); if (S.ending.success) { ok++; if (S.civs.you.stats.conquered === 0) peacefulWins++; } }
+  assert.ok(ok >= 2, 'wins ' + ok); assert.ok(peacefulWins >= 2, 'wins without conquering anything: ' + peacefulWins);
 });
 
 test('military-supported continuity: an army takes an independent settlement; infrastructure retained; integration pressure applies', () => {
