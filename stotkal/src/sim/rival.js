@@ -10,7 +10,7 @@ import { drawOffers, offerView, isCouncilTurn } from './council.js';
 import { relation, evaluateTreaty, power, contact } from './diplomacy.js';
 import { evaluate } from './ambitions.js';
 import { armyPath } from './army.js';
-import { forecast } from './combat.js';
+import { forecast, armyStr } from './combat.js';
 
 const jit = (S, id, k) => 0.9 + 0.2 * stable(S.seed, 'ai', S.turn, id, k);
 
@@ -183,8 +183,9 @@ function diplomacy(S, civ, add, econ, amb) {
     // war: opportunistic and philosophical
     const aggressive = (f.weights.war || 0.6) * (rel < -12 ? 1.4 : 0.6);
     const pact = S.treaties.some(t => t.active && t.kind === 'nonaggression' && ((t.a === other && t.b === id) || (t.a === id && t.b === other)));
-    const wantWar = T >= 8 && pw >= 1.6 && rel < -12 && aggressive > 0.55 && civArmies(S, id).length;
-    if (wantWar && (!pact || (pw >= 2.2 && rel < -18 && T >= 12))) add(52 * aggressive, { type: 'demand', to: other, kind: 'war', why: `${O.name} is weak and relations are poor (${rel})${pact ? '; the non-aggression pact is no longer worth keeping' : ''}` }, pact ? 'break pact to exploit advantage' : 'exploit advantage');
+    const opportunist = T >= 10 && pw >= 3 && rel < 6 && (f.weights.war || 0) >= 0.6 && civArmies(S, id).reduce((a, x) => a + armyStr(x), 0) >= 18; // an overwhelmingly weaker, poorly defended neighbour
+    const wantWar = (T >= 8 && pw >= 1.6 && rel < -12 && aggressive > 0.55 && civArmies(S, id).length) || opportunist;
+    if (wantWar && (!pact || (pw >= 2.2 && rel < -18 && T >= 12))) add(52 * aggressive, { type: 'demand', to: other, kind: 'war', why: opportunist ? `${O.name} is far weaker (power ${power(S, other)} vs ${power(S, id)}) and nearly undefended` : `${O.name} is weak and relations are poor (${rel})${pact ? '; the non-aggression pact is no longer worth keeping' : ''}` }, pact ? 'break pact to exploit advantage' : 'exploit advantage');
     const dk = id + '>' + other + ':tribute'; S.aiMem = S.aiMem || {}; const pending = S.proposals.some(p => p.from === id && p.to === other && p.kind === 'tribute');
     if (T >= 7 && pw >= 1.6 && rel < 5 && !war && !pending && T - (S.aiMem[dk] ?? -99) >= 8) { add(26, { type: 'demand', to: other, kind: 'tribute', why: `tribute from a weaker neighbour (power ${power(S, id)} vs ${power(S, other)})` }, 'tribute demand'); }
   }

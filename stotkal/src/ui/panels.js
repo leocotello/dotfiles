@@ -57,8 +57,8 @@ export function topbar(app) {
   <div class="res" role="group" aria-label="Resources, with next-turn net income">${RES.map(k => { const net = e.net[k]; const r = rs[k]; return `<div class="rchip r-${k}" tabindex="0" data-tip='${esc(netTip(S, k))}'><span class="ic" aria-hidden="true">${RES_META[k].i}</span><span class="n" aria-label="${RES_META[k].n}">${you.res[k]}</span><span class="d ${net < 0 ? 'neg' : net > 0 ? 'pos' : ''}">${sign(net)}</span>${r ? `<small title="Reserved by staged orders">(−${r})</small>` : ''}</div>`; }).join('')}</div>
   <div class="orders" title="Empire orders left this turn"><span class="tiny dim">ORDERS</span><span class="pips" aria-label="${L} of ${CFG.orders} orders left">${Array.from({ length: CFG.orders }, (_, i) => `<span class="pip ${i < CFG.orders - L ? 'used' : ''}"></span>`).join('')}</span><b>${L}</b></div>
   <button class="qchip s${Math.min(2, stage || q)}" data-act="sheet" data-s="quiet" data-tip="${esc('Open the Quieting forecast. ' + (q === 0 ? 'Tremors are faint. A clear forecast is issued on turn 12.' : 'Regional exposure is drawn on the map as hatched tiles. Next escalation: turn ' + (nextEsc || 'none') + '.'))}">◌ ${esc(qtxt)}</button>
-  <button class="btn ghost sm" data-act="modal" data-m="settings" title="Settings (text size, motion, volume)">⚙ Settings</button>
-  <button class="btn ghost sm" data-act="modal" data-m="menu" title="Save, quit, new run">☰ Menu</button>`;
+  <button class="btn ghost sm" data-act="modal" data-m="settings" title="Settings (text size, motion, volume)" aria-label="Settings">⚙<span class="lab"> Settings</span></button>
+  <button class="btn ghost sm" data-act="modal" data-m="menu" title="Save, quit, new run" aria-label="Menu">☰<span class="lab"> Menu</span></button>`;
 }
 
 export function bottombar(app) {

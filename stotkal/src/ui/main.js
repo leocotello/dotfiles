@@ -33,8 +33,9 @@ window.__stotkal = app; // for debugging and automated screenshots
 
 // ------------------------------------------------------------------ boot
 function boot() {
+  if (innerWidth <= 860) document.body.classList.add('panel-closed');
   const errs = validateContent(); if (errs.length) { document.body.innerHTML = `<pre style="padding:20px;color:#fff">Content validation failed:\n${esc(errs.join('\n'))}</pre>`; return; }
-  renderer = new Renderer($('#map')); app.hasSave = hasSave('auto'); applySettings();
+  renderer = new Renderer($('#map')); app.renderer = renderer; app.hasSave = hasSave('auto'); applySettings();
   const q = new URLSearchParams(location.search); if (q.get('debug')) app.settings.debug = true;
   openSetup(true); bind(); layout(); requestAnimationFrame(loop);
   if (q.get('seed') && q.get('auto')) { app.ui.setup.seed = q.get('seed'); beginRun(); }
@@ -154,11 +155,11 @@ function showStagedPath() { // draw the path of the selected army's staged objec
 const ACT = {
   stage: (d) => { const cmd = JSON.parse(d.cmd); const r = doStage(cmd); if (r.ok && ['install', 'research'].includes(cmd.kind) && app.ui.modal && app.ui.modal.type === 'discovery') { /* stay open to show state */ } },
   unstage: (d) => { unstage(app.S, 'you', d.id); persist(); refresh(); },
-  sheet: (d) => { app.ui.sheet = d.s; refresh(); },
+  sheet: (d) => { if (innerWidth <= 860 && app.ui.sheet === d.s && !document.body.classList.contains('panel-closed')) { document.body.classList.add('panel-closed'); } else document.body.classList.remove('panel-closed'); app.ui.sheet = d.s; refresh(); layout(); },
   modal: (d) => { app.ui.modal = d.m === 'council' ? { type: 'council' } : { type: d.m }; refresh(); },
   closemodal: () => { if (app.ui.modal && app.ui.modal.type === 'setup' && !app.S) return; closeModal(); },
   scrim: (d, e) => { if (e.target.classList.contains('scrim') && app.ui.modal && !['ending', 'setup'].includes(app.ui.modal.type)) closeModal(); },
-  select: (d) => { app.ui.sel = { q: +d.q, r: +d.r, army: d.army }; app.ui.sheet = 'context'; showStagedPath(); refresh(); },
+  select: (d) => { app.ui.sel = { q: +d.q, r: +d.r, army: d.army }; app.ui.sheet = 'context'; document.body.classList.remove('panel-closed'); showStagedPath(); refresh(); layout(); },
   discovery: (d) => { app.ui.slot = undefined; app.ui.modal = { type: 'discovery', site: d.site }; refresh(); },
   slot: (d) => { app.ui.slot = +d.i; refresh(); },
   devtoggle: (d) => { app.ui.devOpen = app.ui.devOpen === d.city ? null : d.city; app.ui.replaceIdx = undefined; refresh(); },

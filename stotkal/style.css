@@ -104,9 +104,17 @@ body.reduced *, body.reduced *::before { transition: none !important; animation:
 .hotkeys { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: .86rem; }
 .legend span { margin-right: 10px; white-space: nowrap; }
 .mini { display: inline-block; vertical-align: middle; width: 34px; border-top: 3px solid; margin-right: 4px; }
+@media (max-width: 1180px) { .brand, .orders .tiny, .btn .lab { display: none; } .qchip { max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } #top { gap: 8px; } }
 @media (max-width: 860px) {
   :root { --panel: 100%; }
-  #side { top: auto; bottom: 74px; height: 42vh; width: 100%; border-left: 0; border-top: 1px solid var(--line); }
-  .brand { display: none; } .guide { display: none; }
+  #side { top: auto !important; bottom: 74px; height: 40vh; width: 100%; border-left: 0; border-top: 1px solid var(--line); }
+  body.panel-closed #side { height: 38px; } body.panel-closed #side .sidebody { display: none; }
+  .brand, .guide, .turnbox .age, .orders .tiny, .btn .lab { display: none; }
+  #top { gap: 6px; padding: 4px 8px; min-height: 44px; flex-wrap: nowrap; }
+  .turnbox { min-width: auto; } .turnbox .t { font-size: 1.05rem; }
+  .res { flex-wrap: nowrap; gap: 4px; min-width: 0; } .rchip { padding: 2px 6px; gap: 3px; } .rchip .n { font-size: .95rem; } .rchip small { display: none; }
+  .qchip { padding: 3px 8px; font-size: .74rem; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nav button { padding: 5px 2px; font-size: .72rem; }
+  .slot { min-height: 46px; font-size: .74rem; } .slot .no { font-size: .6rem; }
 }
 @media (max-width: 640px) { .slot .d { -webkit-line-clamp: 1; } #bottom { gap: 6px; padding: 6px; } .btn.primary { padding: 6px 10px; } }
