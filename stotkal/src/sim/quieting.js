@@ -6,6 +6,8 @@ import { civCities, tileAt, fx, hasTech, effExposure, protectionBands, severity,
 import { log } from './state.js';
 import { addFragment } from './council.js';
 
+import { SEASONS } from '../data/action.js';
+export function quietEsc(S) { const sh = (SEASONS[S.worldId] || {}).quietShift || 0; const e = CFG.quieting.escalations; return [e[0] + sh, e[1] + sh, e[2]]; }
 export function forecastLevel(S, civId) {
   const early = civId ? flag(S, S.civs[civId], 'earlyForecast') : false;
   const t = S.turn;
@@ -42,18 +44,18 @@ export function projection(S, civId) {
     const fin = cityEffects(S, c, 3, sev); const reg = S.regions[tileAt(S, c.q, c.r).region];
     rows.push({ city: c, region: REGION_NAMES[reg.id], exposure: reg.exposure, protectedBy: protectionBands(S, c), eff: fin.exposure, losses: fin });
   }
-  return { severity: sev, total: totalResonance(S), rows, nextEscalation: CFG.quieting.escalations.find(t => t >= S.turn) || null };
+  return { severity: sev, total: totalResonance(S), rows, nextEscalation: quietEsc(S).find(t => t >= S.turn) || null };
 }
 
 export function quietingPhase(S) {
   const T = S.turn; const Q = S.quiet; const N = T + 1;
   if (N === CFG.quieting.firstForecast) log(S, 'you', 'Forecast issued: the Quieting is coming. Escalations at turns 22, 26 and 30. Regional exposure is now shown on the map.', 2, { pub: true });
   if (N === CFG.quieting.revealTurn) { Q.revealed = true; log(S, 'you', `Quieting severity is now readable: ${severity(S)} of 3. Exact regional exposure revealed.`, 2, { pub: true }); }
-  if (CFG.quieting.escalations.some(e => N === e - 2)) {
-    const n = CFG.quieting.escalations.find(x => x - 2 === N); log(S, 'you', `Warning: escalation ${CFG.quieting.escalations.indexOf(n) + 1} arrives on turn ${n}. See the forecast panel for likely losses and responses.`, 2);
+  if (quietEsc(S).some(e => N === e - 2)) {
+    const n = quietEsc(S).find(x => x - 2 === N); log(S, 'you', `Warning: escalation ${quietEsc(S).indexOf(n) + 1} arrives on turn ${n}. See the forecast panel for likely losses and responses.`, 2);
   }
   const sev = severity(S);
-  const idx = CFG.quieting.escalations.indexOf(T);
+  const idx = quietEsc(S).indexOf(T);
   if (idx >= 0) {
     Q.stage = idx + 1;
     for (const civId of S.civOrder) {

@@ -16,7 +16,7 @@ Requires Node 18+ only for the tiny static server and tests; the game itself is 
 ```
 cd stotkal
 npm start            # serves http://localhost:8765/   (node tools/serve.js [port])
-npm test             # 47 tests: node --test tests/*.test.js
+npm test             # 64 tests: node --test tests/*.test.js
 npm run simulate     # complete-game simulations:  node tools/simulate.js [nSeeds] [embodied|shared|record|break|idle|all]
 npm run screenshots  # drives the real UI in headless Chromium and regenerates screenshots/ (needs the server running + Playwright)
 ```

@@ -98,3 +98,15 @@ Checked once when a run ends (`evaluateAchievements`), stored in the profile: *S
 
 ## 13. Modifier vocabulary
 Institutions, traditions, dispositions, technologies, combos and boons all carry `fx` objects summed by `economy.fx()`: `prodSus/Mat/Ene/Mem, outpostDisc, reconcileBonus, techDisc, cohAll, cohConnected, gardenSus, archiveMem, conduitEne, foundryRes/Time/Mat, projTimeLong, workDisc, stabDiscMat/Ene, stabBands, upkeepEne, surveyRange, salvageMult, treatyAccept, brokenPromise, freeNeg, regCost, housingEach, growthInterval, growthSurplus, restoreFast, netSpeed, netRepairInstant, resonanceFlat, protectCapital, councilCostMult, verifiedTreaties, monolithSealed, …`. Adding a modifier means adding a key to data and one reader in the simulation; the UI reads `gain/risk` text from the same data.
+
+## 14. The action layer (v2) — `src/sim/{hero,run,threats,advisor,bot}.js`, `src/data/action.js`
+- **The Witness (hero)**: walks the map with `heroMove` (free of orders, movement points = Stride). Stats Mettle/Guard/Stride/Wit/Sight and Resolve (hp). Checks: `chance = clamp(0.5 + 0.12*(stat - difficulty), .1, .95)` rounded to 5%, always shown before choosing.
+- **Pending decisions** (`S.pending`): timed beats, expedition rooms, boons, crossroads, boss stages. While one is open, `endTurn` returns `{blocked:true}`. Headless/bot play uses `autoResolve`, which always takes the cautious option.
+- **Beats**: ~55% chance per turn from turn 2; countdown is UI-only and optional (Settings). Running out of time = the cautious fallback.
+- **Expeditions**: stand next to a ruin or wonder, Enter. 3–4 layers of 2 doors → rooms (trap, cache, echo, guardian…) → the heart: interpret a wonder (institution) or take a ruin's relic, boon or hoard. Resolve 0 = expelled, Frayed 2 turns, site cooldown 3 turns.
+- **Threats**: raiders and echoes spawn at distance 6–10, walk to a city, and resolve in the production phase: defence = 2 + bulwark 3 + army/3 + modifiers (+2 with the Witness in the city) vs power: holds / hurts / breaches. Engage them with the Witness to end them early.
+- **Boons, relics, sets**: boons come from crossroads (turns 11, 21), shrines, ruins; relics have a catch; matching boon tags give set bonuses at 2 and 3.
+- **Seasons**: Calm Tide, Long Dusk, Hungry Winter, Ember Year, Gilded Drift… chosen by seed or in setup; modify threat rate, boon picks, relic rate and the first Quieting escalations.
+- **Crossroads** at turns 11 and 21 set the next age's threat level (Quiet Road, Front, Unmarked Road, Warden boss).
+- **Heirloom legacy**: a relic carried into the next run, with its catch.
+- **UI**: painted continuous terrain (the hex grid is only rules), scrolling/zooming camera following the walking hero, soft fog, radial action menu on the selected tile, Next-Moves advisor, progressive reveal of Energy/Memory/Empire/Diplomacy/Quieting/Ambition tabs (Settings → show everything).

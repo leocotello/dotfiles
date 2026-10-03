@@ -5,13 +5,18 @@ import { OWN } from './render.js';
 import { key, dist } from '../sim/hex.js';
 import { RES, computeEconomy, cohBreakdown, cityHousing, civCities, civArmies, hasInst, hasTech, fx, fxSources, components, connectedToCapital, slotCount, protectionBands, effExposure, severity, totalResonance, civResonance, tileAt, hasTreaty, sources } from '../sim/economy.js';
 import { available, reserved, ordersLeft, ordersUsed, validate, costOf, projectCost, projectTurns, projectDef, techReq, instCost, recruitCost, restoreEvery, isUnlocked, fmtCost, freeNegInterval, offerCost } from '../sim/commands.js';
-import { forecastLevel, regionReport, projection, resonanceProjection } from '../sim/quieting.js';
+import { forecastLevel, regionReport, projection, resonanceProjection, quietEsc } from '../sim/quieting.js';
 import { relation, evaluateTreaty, power, contact } from '../sim/diplomacy.js';
 import { evaluate, shelters, sealedArchives, participating, spireAccess } from '../sim/ambitions.js';
 import { atWar, pairKey, ageOf } from '../sim/state.js';
 import { armyPath, supplyMap, isSupplied } from '../sim/army.js';
 import { forecast, armyStr, maxIntegrity } from '../sim/combat.js';
 import { isCouncilTurn } from '../sim/council.js';
+import { BOONS, RELICS, SEASONS, STAT_NAME, SETS, CROSSROADS, ROOM_KINDS, THREAT_KINDS, HERO } from '../data/action.js';
+import { heroStats, heroPath } from '../sim/hero.js';
+import { advise } from '../sim/advisor.js';
+import { pendingView, expeditionSites } from '../sim/run.js';
+import { threatList, threatForecast, cityDefense, worldMod } from '../sim/threats.js';
 import { revealRange } from '../sim/state.js';
 export const surveyBonus = (S) => fx(S, S.civs.you, 'surveyRange');
 
@@ -37,6 +42,13 @@ export function describeCmd(S, c) {
   return c.type;
 }
 const ageName = (S) => CFG.ageNames[ageOf(S.turn)];
+// Progressive reveal: systems appear when they begin to matter (everything on with Settings -> show everything).
+export function uiStage(app) {
+  const { S, settings } = app; const you = S.civs.you; const all = settings.showAll || settings.debug;
+  const contactAny = S.civOrder.some(o => o !== 'you' && contact(S, 'you', o));
+  return { ene: all || S.turn >= 2, mem: all || S.turn >= 3 || you.fragments.length > 0, empire: all || S.turn >= 3, diplo: all || contactAny || S.turn >= 8, quiet: all || S.turn >= 9, ambition: all || S.turn >= 12 };
+}
+export function tabVisible(app, id) { if (id === 'context' || id === 'log') return true; return !!uiStage(app)[id]; }
 
 // ---------------------------------------------------------------- tooltips
 export function netTip(S, k) {
@@ -47,22 +59,31 @@ export function netTip(S, k) {
 }
 
 // ---------------------------------------------------------------- top & bottom bars
+export function heroTip(app) {
+  const { S } = app; const you = S.civs.you; const st = heroStats(S); const h = S.hero;
+  const rel = you.mods.filter(m => m.kind === 'relic'), bo = you.mods.filter(m => m.kind === 'boon'), at = you.mods.length ? null : null;
+  return `<b>The Witness</b><table><tr><td>Resolve</td><td class="r">${h.hp}/${st.maxHp}</td></tr><tr><td>${STAT_NAME.atk} (strike)</td><td class="r">${st.atk}</td></tr><tr><td>${STAT_NAME.def} (endure)</td><td class="r">${st.def}</td></tr><tr><td>${STAT_NAME.moves} (move per turn)</td><td class="r">${st.moves}${h.frayed > 0 ? ' (Frayed)' : ''}</td></tr><tr><td>${STAT_NAME.wit} (speak, repair)</td><td class="r">${st.wit}</td></tr><tr><td>Sight</td><td class="r">${st.sight}</td></tr></table>${rel.length ? '<br><b>Relics</b><br>' + rel.map(m => `${esc(m.label)}: ${esc(RELICS[m.relicId].desc)} <i>Catch: ${esc(RELICS[m.relicId].catch)}</i>`).join('<br>') : ''}${bo.length ? '<br><b>Boons</b><br>' + bo.map(m => `${esc(m.label)}: ${esc(BOONS[m.boonId].desc)}`).join('<br>') : ''}`;
+}
 export function topbar(app) {
-  const { S } = app; const you = S.civs.you; const e = computeEconomy(S, 'you'); const rs = reserved(S, 'you'); const L = ordersLeft(S, 'you');
-  const q = forecastLevel(S, 'you'); const nextEsc = CFG.quieting.escalations.find(t => t >= S.turn);
-  const sev = severity(S); const stage = S.quiet.stage;
+  const { S } = app; const you = S.civs.you; const e = computeEconomy(S, 'you'); const rs = reserved(S, 'you'); const L = ordersLeft(S, 'you'); const rv = uiStage(app);
+  const q = forecastLevel(S, 'you'); const nextEsc = quietEsc(S).find(t => t >= S.turn);
+  const sev = severity(S); const stage = S.quiet.stage; const st = heroStats(S); const h = S.hero; const season = SEASONS[S.worldId];
   const qtxt = q === 0 ? `Quieting: faint tremors` : `Quieting ${stage ? 'stage ' + stage : 'forecast'} · severity ${q >= 2 ? sev + '/3' : '?'}${nextEsc ? ' · T' + nextEsc : ''}`;
+  const relics = you.mods.filter(m => m.kind === 'relic');
+  const keys = RES.filter(k => k === 'sus' || k === 'mat' || rv[k]);
   return `<div class="brand"><b>Stotkal</b> <i>·</i> <span class="w2">what remains</span></div>
   <div class="turnbox"><span class="t">Turn ${S.turn}<small> / ${CFG.turns}</small></span><span class="age">${ageName(S)}${isCouncilTurn(S.turn) ? ' · council' : ''}</span></div>
-  <div class="res" role="group" aria-label="Resources, with next-turn net income">${RES.map(k => { const net = e.net[k]; const r = rs[k]; return `<div class="rchip r-${k}" tabindex="0" data-tip='${esc(netTip(S, k))}'><span class="ic" aria-hidden="true">${RES_META[k].i}</span><span class="n" aria-label="${RES_META[k].n}">${you.res[k]}</span><span class="d ${net < 0 ? 'neg' : net > 0 ? 'pos' : ''}">${sign(net)}</span>${r ? `<small title="Reserved by staged orders">(−${r})</small>` : ''}</div>`; }).join('')}</div>
+  <div class="res" role="group" aria-label="Resources, with next-turn net income">${keys.map(k => { const net = e.net[k]; const r = rs[k]; return `<div class="rchip r-${k}" tabindex="0" data-tip='${esc(netTip(S, k))}'><span class="ic" aria-hidden="true">${RES_META[k].i}</span><span class="n" aria-label="${RES_META[k].n}">${you.res[k]}</span><span class="d ${net < 0 ? 'neg' : net > 0 ? 'pos' : ''}">${sign(net)}</span>${r ? `<small title="Reserved by staged orders">(−${r})</small>` : ''}</div>`; }).join('')}</div>
+  <div class="herochip" tabindex="0" data-tip='${esc(heroTip(app))}'><span class="hearts" aria-label="Resolve ${h.hp} of ${st.maxHp}">${'♥'.repeat(Math.max(0, Math.min(h.hp, 14)))}<span class="dim">${'♡'.repeat(Math.max(0, Math.min(14, st.maxHp) - Math.min(h.hp, 14)))}</span></span><span class="mv" title="Movement left this turn">➜ ${h.movesLeft}/${st.moves}</span>${h.frayed > 0 ? '<span class="bad tiny">Frayed</span>' : ''}${relics.map(m => `<span class="rel" title="${esc(m.label)}">◆</span>`).join('')}</div>
   <div class="orders" title="Empire orders left this turn"><span class="tiny dim">ORDERS</span><span class="pips" aria-label="${L} of ${CFG.orders} orders left">${Array.from({ length: CFG.orders }, (_, i) => `<span class="pip ${i < CFG.orders - L ? 'used' : ''}"></span>`).join('')}</span><b>${L}</b></div>
-  <button class="qchip s${Math.min(2, stage || q)}" data-act="sheet" data-s="quiet" data-tip="${esc('Open the Quieting forecast. ' + (q === 0 ? 'Tremors are faint. A clear forecast is issued on turn 12.' : 'Regional exposure is drawn on the map as hatched tiles. Next escalation: turn ' + (nextEsc || 'none') + '.'))}">◌ ${esc(qtxt)}</button>
-  <button class="btn ghost sm" data-act="modal" data-m="settings" title="Settings (text size, motion, volume)" aria-label="Settings">⚙<span class="lab"> Settings</span></button>
+  <span class="seasonchip" data-tip="${esc('<b>' + season.name + '</b><br>' + season.blurb + '<br>Gain: ' + season.gain + '<br>Cost: ' + season.cost)}">☾ ${esc(season.name)}</span>
+  ${rv.quiet ? `<button class="qchip s${Math.min(2, stage || q)}" data-act="sheet" data-s="quiet" data-tip="${esc('Open the Quieting forecast. ' + (q === 0 ? 'Tremors are faint. A clear forecast is issued on turn 12.' : 'Regional exposure is drawn on the map as a haze. Next escalation: turn ' + (nextEsc || 'none') + '.'))}">◌ ${esc(qtxt)}</button>` : ''}
+  <button class="btn ghost sm" data-act="modal" data-m="settings" title="Settings (text size, motion, timers, volume)" aria-label="Settings">⚙<span class="lab"> Settings</span></button>
   <button class="btn ghost sm" data-act="modal" data-m="menu" title="Save, quit, new run" aria-label="Menu">☰<span class="lab"> Menu</span></button>`;
 }
 
 export function bottombar(app) {
-  const { S } = app; const you = S.civs.you; const cmds = S.staged.you;
+  const { S } = app; const you = S.civs.you; const cmds = S.staged.you; const st = heroStats(S);
   const slotsHtml = [];
   const orderCmds = cmds.filter(c => c.order), free = cmds.filter(c => !c.order);
   for (let i = 0; i < CFG.orders; i++) {
@@ -70,36 +91,45 @@ export function bottombar(app) {
     slotsHtml.push(c ? `<div class="slot full"><span class="d" title="${esc(describeCmd(S, c))}">${esc(describeCmd(S, c))}<br>${costHtml(c.cost)}</span><button class="x" data-act="unstage" data-id="${c.id}" aria-label="Remove this order" title="Remove (refunds the reservation)">×</button></div>` : `<div class="slot"><span class="no">open order ${i + 1}</span></div>`);
   }
   const freeHtml = free.length ? `<div class="slot free" style="flex:1.2"><span class="d">${free.map(c => esc(describeCmd(S, c)) + (c.freeNeg ? ' (free negotiation)' : '')).join(' · ')}</span><button class="x" data-act="unstage" data-id="${free[free.length - 1].id}" aria-label="Remove last free decision">×</button></div>` : '';
-  const pend = Object.values(you.disc).filter(d => d.state === 'pending').length;
   return `<div class="slots" role="list" aria-label="Staged orders">${slotsHtml.join('')}${freeHtml}</div>
+  <div class="movesleft" title="The Witness's movement this turn (walking is free of orders)">➜ <b>${S.hero.movesLeft}</b>/${st.moves}<small>moves</small></div>
   <div class="col" style="text-align:right"><button class="btn primary" data-act="endturn" aria-keyshortcuts="Enter" title="Review commitment summary, then end the turn (Enter)">End Turn <kbd>Enter</kbd></button></div>`;
 }
 
-// ---------------------------------------------------------------- side panel
-const NAV = [['context', 'Map', ''], ['empire', 'Empire', 'E'], ['diplo', 'Diplomacy', 'D'], ['quiet', 'Quieting', 'Q'], ['ambition', 'Ambition', 'A'], ['log', 'Log', 'L'], ['guide', 'Guide', 'G']];
+const NAV = [['context', 'Moves', ''], ['empire', 'Empire', 'E'], ['diplo', 'Diplomacy', 'D'], ['quiet', 'Quieting', 'Q'], ['ambition', 'Ambition', 'A'], ['log', 'Log', 'L']];
 export function sidePanel(app) {
   const { S, ui } = app; const you = S.civs.you;
-  const pend = Object.values(you.disc).filter(d => d.state === 'pending' && S.sites[Object.keys(you.disc).find(k => you.disc[k] === d)].state === 'open').length;
   const props = S.proposals.filter(p => p.to === 'you').length; const council = S.council.offers && S.council.turn === S.turn && !S.council.chosen && !S.staged.you.some(c => c.type === 'council');
-  const badge = { context: pend, diplo: props, empire: 0, ambition: (S.turn >= 16 && S.turn <= 21 && !you.ambition) ? '!' : 0 };
-  const nav = `<nav class="nav" role="tablist">${NAV.map(([id, lab, k]) => `<button role="tab" aria-selected="${ui.sheet === id}" class="${ui.sheet === id ? 'on' : ''}" data-act="sheet" data-s="${id}" title="${lab}${k ? ' (' + k + ')' : ''}">${lab}${badge[id] ? `<span class="badge">${badge[id]}</span>` : ''}</button>`).join('')}${council ? `<button class="on" data-act="modal" data-m="council" style="background:rgba(137,168,255,.35)">Council ●</button>` : ''}</nav>`;
+  const badge = { diplo: props, ambition: (S.turn >= 16 && S.turn <= 21 && !you.ambition) ? '!' : 0 };
+  const tabs = NAV.filter(([id]) => tabVisible(app, id));
+  if (!tabVisible(app, ui.sheet)) ui.sheet = 'context';
+  const nav = `<nav class="nav" role="tablist">${tabs.map(([id, lab, k]) => `<button role="tab" aria-selected="${ui.sheet === id}" class="${ui.sheet === id ? 'on' : ''}" data-act="sheet" data-s="${id}" title="${lab}${k ? ' (' + k + ')' : ''}">${lab}${badge[id] ? `<span class="badge">${badge[id]}</span>` : ''}</button>`).join('')}${council ? `<button class="on" data-act="modal" data-m="council" style="background:rgba(137,168,255,.35)">Council ●</button>` : ''}</nav>`;
   let body = '';
   switch (ui.sheet) {
     case 'empire': body = empireSheet(app); break; case 'diplo': body = diploSheet(app); break; case 'quiet': body = quietSheet(app); break;
-    case 'ambition': body = ambitionSheet(app); break; case 'log': body = logSheet(app); break; case 'guide': body = guideSheet(app); break; default: body = contextPanel(app);
+    case 'ambition': body = ambitionSheet(app); break; case 'log': body = logSheet(app); break; default: body = advisorCard(app) + contextPanel(app);
   }
   return nav + `<div class="sidebody" id="sidebody" tabindex="-1">${body}</div>`;
 }
-
+function advisorCard(app) {
+  const items = advise(app.S); if (!items.length) return '';
+  return `<div class="advisor"><div class="advh">Next moves</div>${items.map(it => `<button class="adv" data-act="advisor" data-a='${esc(JSON.stringify({ act: it.act }))}'><span class="ic">${it.icon}</span><span class="tx"><b>${esc(it.text)}</b><small>${esc(it.hint || '')}</small></span></button>`).join('')}</div>`;
+}
+function heroCard(app) {
+  const { S } = app; const you = S.civs.you; const st = heroStats(S); const h = S.hero; const rel = you.mods.filter(m => m.kind === 'relic'); const bo = you.mods.filter(m => m.kind === 'boon');
+  const tagN = {}; for (const m of bo) tagN[BOONS[m.boonId].tag] = (tagN[BOONS[m.boonId].tag] || 0) + 1;
+  return `<h3>The Witness</h3><div class="card"><div class="row wrap tiny"><span><b>${h.hp}</b>/${st.maxHp} Resolve</span><span>${STAT_NAME.atk} <b>${st.atk}</b></span><span>${STAT_NAME.def} <b>${st.def}</b></span><span>${STAT_NAME.moves} <b>${st.moves}</b></span><span>${STAT_NAME.wit} <b>${st.wit}</b></span><span>Sight <b>${st.sight}</b></span></div>${h.frayed > 0 ? '<div class="bad tiny">Frayed: one step shorter for ' + h.frayed + ' more turn(s).</div>' : ''}
+  <div class="tiny" style="margin-top:6px"><b>Relics ${rel.length}/${HERO.relicSlots}</b> ${rel.length ? '' : '<span class="dim">none yet. Ruins and traders have them.</span>'}</div>${rel.map(m => `<div class="tiny">◆ <b>${esc(m.label)}</b>: ${esc(RELICS[m.relicId].desc)} <span class="bad">Catch: ${esc(RELICS[m.relicId].catch)}</span></div>`).join('')}
+  <div class="tiny" style="margin-top:6px"><b>Boons ${bo.length}</b></div>${bo.map(m => `<div class="tiny">✦ <b>${esc(m.label)}</b>: ${esc(BOONS[m.boonId].desc)}</div>`).join('') || '<div class="tiny dim">Chosen at crossroads (turns 11 and 21), shrines and some ruins.</div>'}
+  ${Object.entries(tagN).map(([t, n]) => `<div class="tiny dim">${esc(SETS[t].name)}: ${n}/3 (bonus at 2 and 3)</div>`).join('')}</div>`;
+}
 function homePanel(app) {
   const { S } = app; const you = S.civs.you; const cities = civCities(S, 'you'); const armies = civArmies(S, 'you');
-  const pending = Object.entries(you.disc).filter(([id, d]) => d.state === 'pending' && S.sites[id].state === 'open').map(([id]) => S.sites[id]);
-  const nextC = CFG.councilTurns.find(t => t >= S.turn);
-  return `<h2>Your people</h2><p class="dim tiny">${esc(S.cities[you.cap] ? 'Capital: ' + S.cities[you.cap].name : '')}. Select a tile, city or army on the map. <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> move the cursor.</p>
-  <h3>Cities</h3>${cities.map(c => `<div class="card"><div class="row"><b>${esc(c.name)}${c.capital ? ' ★' : ''}</b>${btn('select', 'Select', { cls: 'sm', data: { q: c.q, r: c.r } })}</div><div class="tiny dim">Pop ${c.pop}/${cityHousing(S, you, c)} · Coherence ${Math.round(c.coh)} · ${c.project ? '⚒ ' + (c.project.what.startsWith('district:') ? DISTRICTS[c.project.what.slice(9)].name : WORKS[c.project.what.slice(5)].name) + ' (' + c.project.remaining + 't)' : '<span class="warn">no project</span>'}</div></div>`).join('')}
-  ${armies.length ? `<h3>Armies</h3>${armies.map(a => `<div class="card row"><span>${ROLES[a.regs[0] ? a.regs[0].role : 'warden'].icon.repeat(1)} Army · ${a.regs.length} regiment(s) · ${armyStr(a)} strength · ${a.obj.type}</span>${btn('select', 'Select', { cls: 'sm', data: { q: a.q, r: a.r, army: a.id } })}</div>`).join('')}` : ''}
-  <h3>Discoveries awaiting interpretation</h3>${pending.length ? pending.map(s => `<div class="card row"><span><b>${esc(s.name)}</b><br><span class="tiny dim">${esc(DISCOVERIES[s.type].blurb)}</span></span>${btn('discovery', 'Examine', { cls: 'sm', data: { site: s.id } })}</div>`).join('') : '<p class="dim tiny">None yet. A Survey order reveals nearby ground; sites become available when explored.</p>'}
-  <h3>Coming up</h3><ul class="clean"><li>Next council: ${nextC ? 'turn ' + nextC : 'none'}</li><li>Quieting forecast: turn ${CFG.quieting.firstForecast} · exact reading: turn ${CFG.quieting.revealTurn}</li><li>Ambition: choose between turns 16 and 21 ${you.ambition ? '· <b>' + AMBITIONS[you.ambition.id].name + '</b>' : ''}</li></ul>
+  const ths = threatList(S).filter(t => you.obs[key(t.q, t.r)]);
+  return `${heroCard(app)}
+  ${ths.length ? `<h3>Threats in sight</h3>${ths.map(th => { const f = threatForecast(S, th); const K = THREAT_KINDS[th.kind]; return `<div class="card"><div class="row"><b>${K.glyph} ${esc(K.name)} · power ${th.power}</b>${btn('select', 'Show', { cls: 'sm', data: { q: th.q, r: th.r } })}</div><div class="tiny dim">Heading for ${esc(f.target.name)} in about ${f.eta + 1} turn(s). ${esc(f.target.name)} defends ${f.defense}: <b class="${f.outcome === 'holds' ? 'good' : 'bad'}">${f.outcome === 'holds' ? 'it holds' : f.outcome === 'hurt' ? 'it would be shaken' : 'it would be breached'}</b>.</div></div>`; }).join('')}` : ''}
+  <h3>Cities</h3>${cities.map(c => `<div class="card"><div class="row"><b>${esc(c.name)}${c.capital ? ' ★' : ''}</b>${btn('select', 'Select', { cls: 'sm', data: { q: c.q, r: c.r } })}</div><div class="tiny dim">Pop ${c.pop}/${cityHousing(S, you, c)} · Coherence ${Math.round(c.coh)} · defends ${cityDefense(S, c)} · ${c.project ? '⚒ ' + (c.project.what.startsWith('district:') ? DISTRICTS[c.project.what.slice(9)].name : WORKS[c.project.what.slice(5)].name) + ' (' + c.project.remaining + 't)' : '<span class="warn">no project</span>'}</div></div>`).join('')}
+  ${armies.length ? `<h3>Armies</h3>${armies.map(a => `<div class="card row"><span>${ROLES[a.regs[0] ? a.regs[0].role : 'warden'].icon} Army · ${a.regs.length} regiment(s) · ${armyStr(a)} strength · ${a.obj.type}</span>${btn('select', 'Select', { cls: 'sm', data: { q: a.q, r: a.r, army: a.id } })}</div>`).join('')}` : ''}
   ${S.lastSummary ? `<h3>Last resolution</h3>${summaryList(S.lastSummary, 6)}${btn('modal', 'Open full log', { cls: 'sm ghost', data: { m: 'logfull' } })}` : ''}`;
 }
 export function summaryList(sum, n = 8) {
@@ -111,18 +141,21 @@ export function summaryList(sum, n = 8) {
 function contextPanel(app) {
   const { S, ui } = app; const sel = ui.sel; if (!sel) return homePanel(app);
   const you = S.civs.you; const t = tileAt(S, sel.q, sel.r); if (!t) return homePanel(app); const k = key(t.q, t.r);
-  if (!you.seen[k] && !ui.debugReveal) return `<h2>Unexplored</h2><p>This ground has not been seen. Order a <b>Survey</b> from a tile you currently observe (Expand), or send an army or outpost toward it.</p>${stageBtn(S, 'Survey here', { type: 'survey', q: t.q, r: t.r })}`;
-  const obs = !!you.obs[k] || ui.debugReveal; const T = TERRAIN[t.t];
-  let h = `<h2>${T.name}</h2><div class="tiny dim">${regionName(S, t)} region · (${t.q},${t.r})${obs ? ' · <span class="good">observed now</span>' : ' · <span class="warn">explored, not currently observed</span>'}</div><p class="tiny">${esc(T.blurb)} ${t.owner ? '' : ''}</p>`;
-  const yl = Object.entries(T.yield).map(([k2, v]) => `${RES_META[k2].i}+${v}`).join(' '); const fl = forecastLevel(S, 'you'); const reg = S.regions[t.region];
-  h += `<dl class="kv"><dt>Yield when claimed</dt><dd>${yl}</dd><dt>Movement</dt><dd>${T.passable ? 'cost ' + T.move : 'impassable'}</dd><dt>Owner</dt><dd>${t.owner ? `<span class="sw" style="border-color:${OWN[t.owner].dark};background:${OWN[t.owner].color}"></span>${OWN[t.owner].glyph} ${t.owner === 'you' ? 'You' : t.owner === 'ind' ? 'Independent' : FACTIONS[t.owner].short}` : 'Unclaimed'}</dd>${fl ? `<dt>Quieting exposure</dt><dd>${fl >= 2 ? ['safe', 'exposed', 'highly exposed'][reg.exposure] : reg.exposure ? 'exposed (band pending)' : 'safe'}</dd>` : ''}${obs ? `<dt>Your supply</dt><dd>${isSupplied(S, 'you', t.q, t.r) ? 'supplied' : 'out of supply'}</dd>` : ''}</dl>`;
-  const army = Object.values(S.armies).find(a => a.q === t.q && a.r === t.r && a.owner === 'you');
+  const hp = ui.heroPath && ui.heroPath.steps.length && ui.heroPath.steps[ui.heroPath.steps.length - 1].q === t.q ? ui.heroPath : null;
+  const walk = hp ? `<div class="walkbar"><span>➜ ${hp.cost} move${hp.cost === 1 ? '' : 's'} · ${hp.turns === 0 ? 'this turn' : 'arrives in ' + (hp.turns + 1) + ' turns'}</span>${btn('walk', 'Walk here <kbd>W</kbd>', { cls: 'primary sm', data: { q: t.q, r: t.r } })}</div>` : '';
+  if (!you.seen[k] && !ui.debugReveal) return `<h3>Unexplored</h3><p class="tiny">The Witness sees ${heroStats(S).sight} tiles around her. Walk toward the dark to explore.</p>${walk}` + homePanel(app);
+  const obs = !!you.obs[k] || ui.debugReveal; const T = TERRAIN[t.t]; const fl = forecastLevel(S, 'you'); const reg = S.regions[t.region];
+  let h = `<div class="tilehead"><b>${T.name}</b><span class="tiny dim"> · ${regionName(S, t)} · (${t.q},${t.r})${obs ? '' : ' · <span class="warn">remembered</span>'}</span></div>${walk}`;
+  h += `<details class="tiny"><summary>Tile details</summary><p>${esc(T.blurb)}</p><dl class="kv"><dt>Yield when claimed</dt><dd>${Object.entries(T.yield).map(([k2, v]) => `${RES_META[k2].i}+${v}`).join(' ')}</dd><dt>Movement</dt><dd>${T.passable ? 'cost ' + T.move : 'impassable'}</dd><dt>Owner</dt><dd>${t.owner ? `<span class="sw" style="border-color:${OWN[t.owner].dark};background:${OWN[t.owner].color}"></span>${OWN[t.owner].glyph} ${t.owner === 'you' ? 'You' : t.owner === 'ind' ? 'Independent' : FACTIONS[t.owner].short}` : 'Unclaimed'}</dd>${fl ? `<dt>Quieting exposure</dt><dd>${fl >= 2 ? ['safe', 'exposed', 'highly exposed'][reg.exposure] : reg.exposure ? 'exposed (band pending)' : 'safe'}</dd>` : ''}${obs ? `<dt>Army supply</dt><dd>${isSupplied(S, 'you', t.q, t.r) ? 'supplied' : 'out of supply'}</dd>` : ''}</dl></details>`;
+  if (S.hero.q === t.q && S.hero.r === t.r) h += heroCard(app);
+  const thHere = Object.values(S.threats).filter(x => x.q === t.q && x.r === t.r && obs);
+  for (const th of thHere) { const f = threatForecast(S, th); const K = THREAT_KINDS[th.kind]; const adj = dist(S.hero, th) <= 1; h += `<h3>${K.glyph} ${esc(K.name)}</h3><div class="card"><div class="tiny">${esc(K.blurb)} Power <b>${th.power}</b>, heading for <b>${esc(f.target.name)}</b> (defends ${f.defense}: <b class="${f.outcome === 'holds' ? 'good' : 'bad'}">${f.outcome === 'holds' ? 'it holds' : f.outcome === 'hurt' ? 'shaken' : 'breached'}</b>), ${f.eta + 1} turn(s) away.</div>${btn('engage', adj ? 'Engage' : 'Engage (move next to it first)', { cls: 'primary sm', data: { id: th.id }, disabled: !adj || S.pending.length > 0 })}</div>`; }
   if (t.city) { const c = S.cities[t.city]; h += c.owner === 'you' ? cityPanel(app, c) : foreignCity(app, c, obs); }
   if (t.site) h += sitePanel(app, S.sites[t.site], t);
   const armiesHere = Object.values(S.armies).filter(a => a.q === t.q && a.r === t.r && (a.owner === 'you' || obs));
   for (const a of armiesHere) h += a.owner === 'you' ? armyPanel(app, a) : `<h3>Foreign army</h3><div class="card">${OWN[a.owner].glyph} ${S.civs[a.owner].name}: ${a.regs.length} regiment(s), ${armyStr(a)} strength ${atWar(S, 'you', a.owner) ? '· <b class="bad">at war</b>' : ''}</div>`;
   const lks = Object.values(you.lastKnown).filter(m => m.q === t.q && m.r === t.r && !obs); for (const m of lks) h += `<div class="card warn tiny">Outdated sighting (${S.turn - m.turn} turns old): an army of ${S.civs[m.owner].name}, about ${m.str} strength. It may have moved.</div>`;
-  if (!t.city && T.passable) h += `<h3>Orders here</h3><div class="row wrap">${stageBtn(S, 'Survey <kbd>S</kbd>', { type: 'survey', q: t.q, r: t.r }, { title: `Reveals ${revealRange(S, you, t, 2 + surveyBonus(S), true)} unexplored tile(s) within ${2 + surveyBonus(S)} of here (one order, free of resources)` })}${stageBtn(S, 'Claim <kbd>X</kbd>', { type: 'claim', q: t.q, r: t.r })}${stageBtn(S, 'Outpost <kbd>O</kbd>', { type: 'outpost', q: t.q, r: t.r })}${foundBtn(S, t)}</div><p class="tiny dim">Claim: 2 ◆, adjacent to your border. Outpost: 6 ◆ 2 ⚡, sight and limited supply, 1 ⚡/turn upkeep. Found City: 12 ◆ 6 ❀ 4 ⚡ and 2 population from a connected city (needs ≥ 4).</p>`;
+  if (!t.city && T.passable) h += `<h3>Orders here</h3><div class="row wrap">${stageBtn(S, 'Claim <kbd>X</kbd>', { type: 'claim', q: t.q, r: t.r })}${stageBtn(S, 'Outpost <kbd>O</kbd>', { type: 'outpost', q: t.q, r: t.r })}${foundBtn(S, t)}</div><p class="tiny dim">Claim 2 ◆ (next to your border). Outpost 6 ◆ 2 ⚡ (sight, supply). Found City 12 ◆ 6 ❀ 4 ⚡ + 2 population from a connected city with ≥ 4.</p>`;
   return h;
 }
 function foundBtn(S, t) {
@@ -179,9 +212,10 @@ function sitePanel(app, s, t) {
   const { S } = app; const you = S.civs.you; const d = you.disc[s.id]; const D = DISCOVERIES[s.type];
   let h = `<h3>${esc(s.name)}</h3><p class="tiny"><span class="tag fact">observed</span> ${esc(D.blurb)}</p>`;
   if (s.type === 'meridian_spire') { const ac = spireAccess(S, you); return h + `<p class="tiny"><span class="tag unk">unknown</span> Its purpose is unclear. The Break the Recurrence ambition needs control of this tile or a passage treaty with its owner.</p><div>Your access: <b class="${ac ? 'good' : 'warn'}">${ac || 'none'}</b></div>${!t.owner ? stageBtn(S, 'Claim it (2 ◆)', { type: 'claim', q: t.q, r: t.r }) : ''}`; }
-  if (D.anomaly) return h + `<p class="tiny"><span class="tag unk">unknown</span> Instruments disagree here. Investigating costs 3 ⚡ and one order and yields Memory plus a named measurement. You must hold an adjacent tile, outpost or army, but no conquest.</p>${s.invest.you ? '<div class="good">Investigated by you.</div>' : stageBtn(S, 'Investigate (3 ⚡)', { type: 'investigate', site: s.id })}`;
-  if (s.state !== 'open') return h + `<div class="tiny">${s.state === 'salvaged' ? 'Salvaged' : 'Interpreted'} by ${s.by === 'you' ? 'you' : S.civs[s.by].name}${s.interp ? ': ' + INSTITUTIONS[s.interp].name : ''}.</div>`;
-  if (d && d.state === 'pending') return h + btn('discovery', 'Examine interpretations…', { cls: 'primary', data: { site: s.id } });
+  if (D.anomaly) return h + `<p class="tiny"><span class="tag unk">unknown</span> Instruments disagree here. Investigating costs 3 ⚡ and one order and yields Memory plus a named measurement. Stand next to it with the Witness (or hold an adjacent tile, outpost or army), but no conquest.</p>${s.invest.you ? '<div class="good">Investigated by you.</div>' : stageBtn(S, 'Investigate (3 ⚡)', { type: 'investigate', site: s.id })}`;
+  if (s.state !== 'open') return h + `<div class="tiny">${s.state === 'salvaged' ? 'Salvaged' : 'Interpreted'} by ${s.by === 'you' ? 'you' : S.civs[s.by].name}${s.interp && INSTITUTIONS[s.interp] ? ': ' + INSTITUTIONS[s.interp].name : ''}.</div>`;
+  const adj = expeditionSites(S).some(x => x.id === s.id);
+  if (d && d.state === 'pending') return h + `<div class="row wrap">${btn('enter', 'Enter ✦', { cls: 'primary', data: { site: s.id }, disabled: !adj || S.pending.length > 0, title: adj ? 'Explore it: rooms, risks, and a reward' : 'Stand next to it first (walk there)' })}${btn('discovery', 'Preview readings', { cls: 'sm', data: { site: s.id } })}</div>${adj ? '' : '<p class="tiny dim">Walk next to it, then Enter. Ruins hold relics; wonders can be interpreted into institutions at their heart.</p>'}`;
   return h;
 }
 function armyPanel(app, a) {
@@ -250,7 +284,7 @@ function diploSheet(app) {
 function quietSheet(app) {
   const { S } = app; const lvl = forecastLevel(S, 'you'); const you = S.civs.you; const sev = severity(S); const tot = totalResonance(S);
   let h = `<h2>The Quieting</h2><p class="tiny"><span class="tag fact">observed</span> Memories lose associations, infrastructure drifts out of calibration, some regions become hard to inhabit. <span class="tag unk">unknown</span> Why. The costs below are certain even though the cause is not.</p>`;
-  h += `<h3>Schedule</h3><table class="t">${CFG.quieting.escalations.map((t, i) => `<tr><td>Escalation ${i + 1} · turn ${t}</td><td>${['Exposed powered districts lose output', 'Unprotected exposed cities lose Coherence; links become vulnerable', 'Final test: unprotected cities lose people and unsealed Archives'][i]}</td><td class="r">${S.quiet.stage > i ? '<b class="rose">arrived</b>' : t - S.turn <= 2 ? '<b class="warn">soon</b>' : ''}</td></tr>`).join('')}</table>`;
+  h += `<h3>Schedule</h3><table class="t">${quietEsc(S).map((t, i) => `<tr><td>Escalation ${i + 1} · turn ${t}</td><td>${['Exposed powered districts lose output', 'Unprotected exposed cities lose Coherence; links become vulnerable', 'Final test: unprotected cities lose people and unsealed Archives'][i]}</td><td class="r">${S.quiet.stage > i ? '<b class="rose">arrived</b>' : t - S.turn <= 2 ? '<b class="warn">soon</b>' : ''}</td></tr>`).join('')}</table>`;
   if (lvl === 0) return h + `<p class="dim">Faint tremors only. A clear forecast arrives on turn ${CFG.quieting.firstForecast}; exact severity and regions by turn ${CFG.quieting.revealTurn}. Meanwhile, Foundries add Resonance: keep an eye on it.</p>${resonanceTable(S, false)}`;
   h += `<h3>Severity</h3><div class="card"><b>${lvl >= 2 ? sev + ' of 3' : 'reading…'}</b><div class="tiny">Baseline 1, +1 at 30 total Resonance, +1 at 60. Total Resonance now: <b>${tot}</b>. Break the Recurrence needs it below ${CFG.quieting.interruptThreshold} for the final 3 turns.</div><div class="bar"><i style="width:${Math.min(100, tot)}%"></i></div></div>`;
   h += resonanceTable(S, true);
@@ -320,6 +354,8 @@ export function modalHtml(app) {
     case 'settings': return wrap(settingsHtml(app), { label: 'Settings', w: 'min(520px,96vw)' });
     case 'menu': return wrap(menuHtml(app), { label: 'Menu', w: 'min(480px,96vw)' });
     case 'ending': return wrap(endingHtml(app), { label: 'Chronicle', nox: true, w: 'min(980px,97vw)' });
+    case 'pending': return wrap(pendingHtml(app), { label: 'A decision', nox: true, w: 'min(900px,97vw)' });
+    case 'guide': return wrap(guideSheet(app), { label: 'Guide', w: 'min(760px,96vw)' });
     case 'logfull': return wrap(`<h2>Complete log</h2>${logSheet(app)}`, { label: 'Log', w: 'min(640px,96vw)' });
     case 'debug': return wrap(debugHtml(app), { label: 'Debug', w: 'min(760px,96vw)' });
     case 'message': return wrap(`<h2>${esc(m.title)}</h2><p>${esc(m.text)}</p><div class="row">${btn('closemodal', 'OK', { cls: 'primary' })}</div>`, { label: m.title, w: 'min(520px,96vw)' });
@@ -332,6 +368,7 @@ function setupHtml(app) {
   <p style="max-width:640px;margin:10px auto;font-family:var(--serif);font-style:italic">You wake with language, instincts and an incomplete past. The world cannot keep everything. When it cannot carry everything forward, who decides what it remembers?</p></div>
   <h3 style="margin-top:6px">Founding tradition</h3><div class="pickrow">${Object.entries(TRADITIONS).map(([id, t]) => { const lock = t.unlock && !(profile.achievements || []).includes(t.unlock) && !app.settings.debug; return `<button class="pick ${st.tradition === id ? 'on' : ''}" ${lock ? 'disabled' : ''} data-act="setup" data-k="tradition" data-v="${id}">${lock ? `<span class="tag">locked</span> <span class="tiny">Earn “${esc(ACHIEVEMENTS[t.unlock].name)}”: ${esc(ACHIEVEMENTS[t.unlock].desc)}</span><br>` : ''}<b>${esc(t.name)}</b><div class="tiny">${esc(t.blurb)}</div><span class="g">＋ ${esc(t.gain)}</span><span class="c">− ${esc(t.cost)}</span></button>`; }).join('')}</div>
   <h3>Witness disposition</h3><div class="pickrow">${Object.entries(DISPOSITIONS).map(([id, t]) => { const lock = t.unlock && !(profile.achievements || []).includes(t.unlock) && !app.settings.debug; return `<button class="pick ${st.disp === id ? 'on' : ''}" ${lock ? 'disabled' : ''} data-act="setup" data-k="disp" data-v="${id}">${lock ? `<span class="tag">locked</span> <span class="tiny">Earn “${esc(ACHIEVEMENTS[t.unlock].name)}”: ${esc(ACHIEVEMENTS[t.unlock].desc)}</span><br>` : ''}<b>${esc(t.name)}</b><div class="tiny">${esc(t.blurb)}</div><span class="g">＋ ${esc(t.gain)}</span><span class="c">− ${esc(t.cost)}</span></button>`; }).join('')}</div>
+  <h3>Season of the world</h3><div class="pickrow"><button class="pick ${!st.world ? 'on' : ''}" data-act="setup" data-k="world" data-v=""><b>Surprise me</b><div class="tiny">The seed picks a season.</div></button>${Object.entries(SEASONS).map(([id, w]) => `<button class="pick ${st.world === id ? 'on' : ''}" data-act="setup" data-k="world" data-v="${id}"><b>${esc(w.name)}</b><div class="tiny">${esc(w.blurb)}</div><span class="g">＋ ${esc(w.gain)}</span><span class="c">− ${esc(w.cost)}</span></button>`).join('')}</div>
   <p class="tiny dim">Terrain is the third influence: the map is generated from the seed, and your start always has a garden, an early discovery and more than one way to develop. None of these choices locks you into an ambition.</p>
   ${profile.legacy ? `<div class="card"><label><input type="checkbox" data-act="setupfresh" ${st.fresh ? 'checked' : ''}> <b>Fresh chronicle</b> — ignore the inherited legacy (your history is kept).</label><div class="tiny">${st.fresh ? 'No inherited effects this run.' : `Inherited: <b>${esc(profile.legacy.name)}</b> (${LEGACIES[profile.legacy.kind].name}). ${esc(LEGACIES[profile.legacy.kind].gain)} <span class="bad">${esc(LEGACIES[profile.legacy.kind].cost)}</span>`}</div></div>` : ''}
   <div class="row"><label class="tiny">Seed <input id="seedin" value="${esc(st.seed)}" placeholder="(random)" style="width:150px" aria-label="Seed"></label><span class="tiny dim">${profile.runs ? profile.runs + ' chronicle(s) written' : 'first run'}</span><div>${app.hasSave ? btn('continue', 'Continue saved run', { cls: '' }) : ''} ${btn('beginrun', 'Begin', { cls: 'primary' })}</div></div>`;
@@ -364,7 +401,7 @@ function commitHtml(app) {
 }
 export function discoveryHtml(app, siteId) {
   const { S, ui } = app; const you = S.civs.you; const s = S.sites[siteId]; const D = DISCOVERIES[s.type]; const have = available(S, 'you');
-  if (s.state !== 'open') return `<h2>${esc(s.name)}</h2><p>${s.state === 'salvaged' ? 'Salvaged' : 'Interpreted'} by ${s.by === 'you' ? 'you' : esc(S.civs[s.by].name)}${s.interp ? ': <b>' + esc(INSTITUTIONS[s.interp].name) + '</b>' : ''}. The site is closed; its named fragment, "${esc(s.fragment || '')}", went with it.</p><div class="row">${btn('closemodal', 'Close', { cls: 'primary' })}</div>`;
+  if (s.state !== 'open') return `<h2>${esc(s.name)}</h2><p>${s.state === 'salvaged' ? 'Salvaged' : 'Interpreted'} by ${s.by === 'you' ? 'you' : esc(S.civs[s.by].name)}${s.interp && INSTITUTIONS[s.interp] ? ': <b>' + esc(INSTITUTIONS[s.interp].name) + '</b>' : ''}. The site is closed; its named fragment, "${esc(s.fragment || '')}", went with it.</p><div class="row">${btn('closemodal', 'Close', { cls: 'primary' })}</div>`;
   const slot = ui.slot ?? (you.inst.findIndex(x => !x) >= 0 ? you.inst.findIndex(x => !x) : 0);
   const haveInst = you.inst.filter(Boolean).map(x => INSTITUTIONS[x.id]);
   const staged = S.staged.you.find(c => (c.kind === 'install' && c.site === siteId) || (c.type === 'salvage' && c.site === siteId));
@@ -383,6 +420,10 @@ function settingsHtml(app) {
   return `<h2>Settings</h2><div class="stack"><label>Text size <input type="range" min="0.85" max="1.5" step="0.05" value="${st.textScale}" data-act="set" data-k="textScale" aria-label="Text size"> <b>${Math.round(st.textScale * 100)}%</b></label>
   <label><input type="checkbox" data-act="setb" data-k="reducedMotion" ${st.reducedMotion ? 'checked' : ''}> Reduced motion (stops drifting clouds, pulses and shimmer)</label>
   <label><input type="checkbox" data-act="setb" data-k="quietLayer" ${st.quietLayer !== false ? 'checked' : ''}> Show Quieting exposure on the map</label>
+  <label><input type="checkbox" data-act="setb" data-k="timedBeats" ${st.timedBeats ? 'checked' : ''}> Timed beats (a brief countdown on some decisions; when it ends the cautious choice is made). Turn off for a fully relaxed game.</label>
+  <label>Beat length <input type="range" min="8" max="40" step="1" value="${st.beatSeconds}" data-act="set" data-k="beatSeconds" aria-label="Seconds per timed beat"> <b>${st.beatSeconds}s</b></label>
+  <label><input type="checkbox" data-act="setb" data-k="showAll" ${st.showAll ? 'checked' : ''}> Show every system from turn 1 (disable progressive reveal)</label>
+  <label><input type="checkbox" data-act="radialtoggle" ${app.ui.radial ? 'checked' : ''}> Radial action menu on the map</label>
   <label>Music <input type="range" min="0" max="1" step="0.05" value="${st.music}" data-act="set" data-k="music" aria-label="Music volume"></label>
   <label>Effects <input type="range" min="0" max="1" step="0.05" value="${st.fx}" data-act="set" data-k="fx" aria-label="Effects volume"></label>
   <p class="tiny dim">Ownership is always shown by glyph and border pattern as well as colour. Audio is never required to understand a threat.</p>
@@ -402,9 +443,54 @@ function endingHtml(app) {
   const { S, ui } = app; const e = S.ending; const c = e.chronicle; const A = e.ambition ? AMBITIONS[e.ambition] : null;
   return `<div class="titlescreen"><div class="sub">${e.kind === 'collapse' ? 'the record ends early' : 'turn 30 · the cycle ends'}</div><h1 style="font-size:1.9rem;letter-spacing:.12em">${esc(c.head)}</h1></div>
   <div class="cols c2"><div><h3>What you built</h3>${c.built.map(b => `<p>${esc(b)}</p>`).join('')}<h3>What you believed</h3><p>${esc(c.believedTxt)}</p><h3>Promises</h3><p>${esc(c.promises)}</p><h3>What was sacrificed</h3>${c.sacrifices.length ? c.sacrifices.map(x => `<p>• ${esc(x)}</p>`).join('') : '<p>No settlement was lost.</p>'}<h3>What was preserved</h3><p>${esc(c.frag)}</p></div>
-  <div><h3>The ambition (mechanical result)</h3>${A ? `<p><b>${esc(A.name)}</b>: ${e.success ? '<b class="good">achieved</b>' : '<b class="bad">not achieved</b>'}</p><ul class="clean tiny">${e.parts.map(p => `<li class="${p.ok ? 'good' : 'bad'}">${p.ok ? '✓' : '✕'} ${esc(p.label)}: ${p.cur}${p.need > 1 ? '/' + p.need : ''}</li>`).join('')}</ul>` : '<p>None was committed.</p>'}<h3>The cost (emotional result)</h3><div class="quote">${esc(c.cost)} ${esc(c.witnessLoss)}</div><h3>The others</h3>${c.rivals.map(r => `<p class="tiny">${esc(r)}</p>`).join('')}<h3>Those who remain</h3>${c.survivors.map(s => `<p class="tiny">${esc(s.name)}: ${s.pop} people, Coherence ${s.coh}</p>`).join('') || '<p class="tiny">No one.</p>'}</div></div>
+  <div><h3>The ambition (mechanical result)</h3>${A ? `<p><b>${esc(A.name)}</b>: ${e.success ? '<b class="good">achieved</b>' : '<b class="bad">not achieved</b>'}</p><ul class="clean tiny">${e.parts.map(p => `<li class="${p.ok ? 'good' : 'bad'}">${p.ok ? '✓' : '✕'} ${esc(p.label)}: ${p.cur}${p.need > 1 ? '/' + p.need : ''}</li>`).join('')}</ul>` : '<p>None was committed.</p>'}<h3>The cost (emotional result)</h3><div class="quote">${esc(c.cost)} ${esc(c.witnessLoss)}</div><h3>The Witness</h3><p class="tiny">${esc((e.chronicle && e.chronicle.witness) || e.witness || 'The Witness walked the whole way.')}</p><h3>The others</h3>${c.rivals.map(r => `<p class="tiny">${esc(r)}</p>`).join('')}<h3>Those who remain</h3>${c.survivors.map(s => `<p class="tiny">${esc(s.name)}: ${s.pop} people, Coherence ${s.coh}</p>`).join('') || '<p class="tiny">No one.</p>'}</div></div>
   ${(e.newAchievements || []).length ? `<div class="card sel"><b>Earned:</b> ${e.newAchievements.map(id => `“${esc(ACHIEVEMENTS[id].name)}”`).join(', ')} — ${e.newAchievements.map(id => id === 'something_remains' ? 'the Salt Cartographers can now found a people' : id === 'every_promise' ? 'the Mourner can now be chosen as Witness' : 'recorded in your history').join('; ')}.</div>` : ''}
   <h3>Choose one legacy for the next cycle</h3><p class="tiny dim">Only one legacy modifies the next run, with bounded strength and a complication. The record of this run is kept either way.</p>
   <div class="cols c3">${e.legacies.map((l, i) => `<div class="opt ${ui.legacyPick === i ? 'sel' : ''}"><h3>${esc(l.name)}</h3><div class="tiny">${esc(l.why)}</div><div class="gain">${esc(LEGACIES[l.kind].gain)}</div><div class="risk">${esc(LEGACIES[l.kind].cost)}</div>${btn('legacy', ui.legacyPick === i ? 'Chosen ✓' : 'Choose', { data: { i }, disabled: !l.eligible, cls: 'primary' })}</div>`).join('')}</div>
   <div class="row" style="margin-top:12px">${btn('legacy', 'No legacy (fresh chronicle)', { data: { i: -1 } })}${btn('nextrun', 'Begin another cycle', { cls: 'primary' })}</div>`;
+}
+
+
+// ---------------------------------------------------------------- radial menu items for the selected tile
+export function radialItems(app) {
+  const { S, ui } = app; const sel = ui.sel; if (!sel) return []; const t = tileAt(S, sel.q, sel.r); if (!t) return []; const you = S.civs.you; const k = key(t.q, t.r);
+  if (!you.seen[k]) return [{ act: 'walk', data: { q: t.q, r: t.r }, icon: '➜', label: 'Walk', title: 'Walk toward the unknown', cls: 'go' }];
+  const items = []; const here = S.hero.q === t.q && S.hero.r === t.r;
+  if (!here && TERRAIN[t.t].passable) items.push({ act: 'walk', data: { q: t.q, r: t.r }, icon: '➜', label: 'Walk', title: 'Walk the Witness here (free of orders)', cls: 'go', disabled: !!S.pending.length });
+  const adj = dist(S.hero, t) <= 1;
+  if (t.site) { const sx = S.sites[t.site]; if (sx.state === 'open' && expeditionSites(S).some(x => x.id === sx.id)) items.push({ act: 'enter', data: { site: sx.id }, icon: '✦', label: 'Enter', title: 'Explore ' + sx.name, cls: 'go', disabled: !!S.pending.length }); else if (sx.state === 'open') items.push({ act: 'discovery', data: { site: sx.id }, icon: '✦', label: 'Readings', title: 'Preview' }); }
+  for (const th of Object.values(S.threats)) if (th.q === t.q && th.r === t.r && you.obs[k]) items.push({ act: 'engage', data: { id: th.id }, icon: '⚔', label: 'Engage', title: adj ? 'Face it' : 'Move next to it first', cls: 'bad', disabled: !adj || !!S.pending.length });
+  if (t.city && S.cities[t.city].owner === 'you') items.push({ act: 'sheet', data: { s: 'context' }, icon: '⌂', label: 'City', title: 'Open the city panel' });
+  if (!t.city && TERRAIN[t.t].passable) {
+    const mk = (type, icon, label) => { const cmd = { type, q: t.q, r: t.r }; const err = validate(S, 'you', cmd); return { act: 'stage', data: { cmd }, icon, label, title: err || label, disabled: !!err }; };
+    items.push(mk('claim', '⬡', 'Claim')); items.push(mk('outpost', '▲', 'Outpost'));
+    items.push({ act: 'target', data: { kind: 'survey' }, icon: '◎', label: 'Survey', title: 'Reveal nearby ground (an order)' });
+  }
+  return items.slice(0, 6);
+}
+
+// ---------------------------------------------------------------- pending decisions (beats, expeditions, boons, crossroads, boss)
+function chanceBadge(c) { return c.chance == null ? '' : `<span class="chance" title="${esc(STAT_NAME[c.stat] || '')} against difficulty ${c.diff}">${Math.round(c.chance * 100)}%</span>`; }
+function choiceBtn(act, c, extra = {}) {
+  return `<button class="choice" data-act="${act}" data-id="${c.id}" ${Object.entries(extra).map(([k, v]) => `data-${k}='${esc(v)}'`).join(' ')} ${c.afford === false ? 'disabled' : ''}><span class="cl">${esc(c.label)}</span>${chanceBadge(c)}${c.cost ? `<span class="cc">${costHtml(c.cost)}</span>` : ''}<small>${esc(c.hint || '')}${c.stat ? ' · ' + esc(STAT_NAME[c.stat]) + ' vs ' + c.diff : ''}</small></button>`;
+}
+function pendingHtml(app) {
+  const { S } = app; const v = pendingView(S); if (!v) return '<h2>…</h2>';
+  const hp = `<div class="hpline tiny">Resolve <b>${S.hero.hp}</b>/${heroStats(S).maxHp}</div>`;
+  if (v.type === 'beat') {
+    const timed = v.timed && app.settings.timedBeats;
+    return `<div class="pend beat k-${esc(v.kind)}">${timed ? `<div class="timer"><div id="beat-timer"></div><span id="beat-timer-n"></span></div>` : ''}<h2>${esc(v.title)}</h2><p class="story">${esc(v.text)}</p><div class="choices">${v.choices.map(c => choiceBtn('pbeat', c)).join('')}</div>${hp}<p class="tiny dim">${timed ? 'If time runs out, the cautious choice is made. ' : ''}Percentages are the chance of success; your stats move them.</p></div>`;
+  }
+  if (v.type === 'boon') return `<div class="pend"><div class="sub">${esc(v.reason || 'A boon')}</div><h2>Choose a boon</h2><div class="cols c3">${v.options.map(b => `<div class="opt"><span class="tag">${esc(SETS[b.tag].name)}</span><h3>${esc(b.name)}</h3><div class="gain">${esc(b.desc)}</div>${btn('pboon', 'Take it', { cls: 'primary', data: { id: b.id } })}</div>`).join('')}</div></div>`;
+  if (v.type === 'crossroads') return `<div class="pend"><div class="sub">the age turns</div><h2>Crossroads</h2><p class="story">The road forks. Whatever you choose sets the character of the age to come.</p><div class="cols c3">${v.options.map(o => `<div class="opt"><h3>${esc(o.name)}</h3><div class="gain">${esc(o.gain)}</div><div class="risk">${esc(o.cost || o.risk || '')}</div>${btn('pcross', 'Take this road', { cls: 'primary', data: { id: o.id } })}</div>`).join('')}</div></div>`;
+  if (v.type === 'boss') return `<div class="pend"><div class="sub">stage ${v.stage + 1} of ${v.total}</div><h2>${esc(v.title || v.name || 'The Warden')}</h2><p class="story">${esc(v.text || '')}</p><div class="choices">${v.choices.map(c => choiceBtn('pboss', c)).join('')}</div>${hp}</div>`;
+  if (v.type === 'exped') {
+    const head = `<div class="sub">${esc(v.theme)}</div><h2>${esc(v.site.name)}</h2><div class="depth">${Array.from({ length: v.nLayers }, (_, i) => `<span class="dp ${i < v.layer ? 'done' : i === v.layer ? 'now' : ''}"></span>`).join('')}<span class="tiny dim">depth ${Math.min(v.layer + 1, v.nLayers)}/${v.nLayers}</span></div>${hp}${v.log && v.log.length ? `<div class="tiny dim exlog">${v.log.slice(-3).map(esc).join('<br>')}</div>` : ''}`;
+    if (v.heart) {
+      return `<div class="pend">${head}<p class="story">At the heart: ${v.wonder ? 'the thing itself, still turning. Decide what it is.' : 'what the ruin kept.'}</p><div class="cols c3">${v.heartOptions.map(o => `<div class="opt"><span class="tag">${esc(o.style || o.kind)}</span><h3>${esc(o.name)}</h3><div class="gain">${esc(o.gain)}</div>${o.risk ? `<div class="risk">${esc(o.risk)}</div>` : ''}${o.cost ? `<div>${costHtml(o.cost)}</div>` : ''}${btn('pheart', o.kind === 'salvage' ? 'Take it' : 'Choose', { cls: 'primary', data: { id: o.id }, disabled: o.afford === false })}</div>`).join('')}</div></div>`;
+    }
+    if (v.room) return `<div class="pend">${head}<h3>${esc(v.room.icon || '')} ${esc(v.room.name)}</h3><p class="story">${esc(v.room.text)}</p><div class="choices">${v.room.choices.map(c => choiceBtn('proom', c)).join('')}</div></div>`;
+    return `<div class="pend">${head}<p class="story">Doors, each a different promise.</p><div class="cols c3">${v.doors.map((d, i) => `<div class="opt"><h3>${esc(d.icon || '')} ${esc(d.name)}</h3><div class="tiny">${esc(d.blurb || d.hint || '')}</div>${btn('pdoor', 'Open', { cls: 'primary', data: { i } })}</div>`).join('')}</div>${btn('pleave', 'Leave the site', { cls: 'ghost sm' })}</div>`;
+  }
+  return '<h2>…</h2>';
 }

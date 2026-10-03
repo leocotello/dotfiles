@@ -35,7 +35,9 @@ function chronicle(S, e) {
   if (e.success) cost = e.ambition === 'record' ? 'The record is whole, and for a while it was more tended than the people who made it.' : e.ambition === 'shared' ? 'The network holds, and some who stayed apart are remembered only as gaps in it.' : e.ambition === 'embodied' ? 'The shelters hold; the Witness lost part of her own history in making room for others.' : 'The Recurrence is interrupted, and the world, relieved, forgets there was ever a pattern.';
   else cost = 'It did not hold. What survived did so by smaller kindnesses than the plan.';
   const witnessLoss = you.fragments.some(f => f.cat === 'witness') ? 'You kept one name that was yours. The rest drifted.' : 'Part of the Witness\'s own history went quiet; nobody wrote it down.';
-  return { head, built, believedTxt: believedTxt + goneTxt, promises, sacrifices: sac, frag, rivals: rivalTxt, cost, witnessLoss, survivors: cities.map(c => ({ name: c.name, pop: c.pop, coh: Math.round(c.coh) })), events: S.chronicle.slice(-40) };
+  const st = S.hero ? S.hero.steps || 0 : 0; const rels = you.mods.filter(m => m.kind === 'relic').map(m => m.label), bns = you.mods.filter(m => m.kind === 'boon').length;
+  const witness = `The Witness walked ${st} steps across the Palimpsest${rels.length ? ', carrying ' + rels.join(' and ') : ''}${bns ? ' and ' + bns + ' boon' + (bns > 1 ? 's' : '') : ''}${S.hero && S.hero.hp <= 2 ? ', and came back worn thin' : ''}.`;
+  return { head, witness, built, believedTxt: believedTxt + goneTxt, promises, sacrifices: sac, frag, rivals: rivalTxt, cost, witnessLoss, survivors: cities.map(c => ({ name: c.name, pop: c.pop, coh: Math.round(c.coh) })), events: S.chronicle.slice(-40) };
 }
 const list = (a) => a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1];
 
@@ -56,5 +58,7 @@ export function legacyOptions(S, e) {
   const inst = you.inst.find(Boolean) || (you.instHistory[0] && { id: you.instHistory[0].id });
   opts.push({ kind: 'echo', inst: inst ? inst.id : null, name: inst ? 'Echo of ' + INSTITUTIONS[inst.id].name : 'Echo of nothing', eligible: !!inst, why: inst ? 'An institution remembered by the land.' : 'You founded no institution.' });
   opts.push({ kind: 'character', name: 'The Witness, restored', eligible: true, why: 'A former ruler with expertise and a grievance.' });
+  const rel = you.mods.find(m => m.kind === 'relic');
+  if (rel) opts.push({ kind: 'heirloom', relic: rel.relicId, name: rel.label + ' (heirloom)', eligible: true, why: 'Carried out of the dark by the Witness.' });
   return opts;
 }

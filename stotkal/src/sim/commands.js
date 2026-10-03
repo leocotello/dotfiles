@@ -156,7 +156,7 @@ const VALIDATE = {
   investigate(S, civ, c) {
     const s = S.sites[c.site]; if (!s || s.type !== 'anomaly') return 'Not an anomaly.'; if (s.invest[civ.id]) return 'Already investigated.';
     if (!seenTile(civ, s.q, s.r)) return 'Not yet explored.';
-    const near = [{ q: s.q, r: s.q }]; const own = tileAt(S, s.q, s.r).owner === civ.id || neighbors(s.q, s.r).some(n => { const t = tileAt(S, n.q, n.r); return t && (t.owner === civ.id) ; }) || civArmies(S, civ.id).some(a => dist(a, s) <= 1);
+    const near = [{ q: s.q, r: s.q }]; const own = tileAt(S, s.q, s.r).owner === civ.id || neighbors(s.q, s.r).some(n => { const t = tileAt(S, n.q, n.r); return t && (t.owner === civ.id) ; }) || civArmies(S, civ.id).some(a => dist(a, s) <= 1) || (civ.id === 'you' && S.hero && dist(S.hero, s) <= 1);
     if (!own) return 'Needs a claimed tile, outpost or army adjacent to the site.'; return null;
   },
   recruit(S, civ, c) {

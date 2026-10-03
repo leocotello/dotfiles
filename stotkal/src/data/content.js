@@ -4,7 +4,7 @@
 export const CFG = {
   turns: 30,
   orders: 3,
-  radius: 5,
+  radius: 8,
   ageBounds: [10, 20, 30],
   ageNames: ['Awakening', 'Becoming', 'Reckoning'],
   councilTurns: [3, 6, 9, 12, 15, 18, 21, 24, 27],
@@ -149,6 +149,7 @@ export const DISCOVERIES = {
     interps: ['loom_shelter', 'loom_harvest', 'loom_forecast'] },
   glass_cradle: { name: 'The Glass Cradle', cat: 'cradle', blurb: 'Rows of sleepers beneath glass, each wearing the same patient face.', fragment: 'The Name Under the Frost',
     interps: ['cradle_wake', 'cradle_tend', 'cradle_seal'] },
+  ruin: { name: 'Silent Ruin', cat: 'ruin', expedition: true, blurb: 'A collapsed room of the old world. Something here is still intact, and not everything that remains is friendly.', fragment: 'A Name Scratched Under a Floor', interps: [] },
   anomaly: { name: 'Anomaly Site', cat: 'anomaly', anomaly: true, blurb: 'A place where the world misaligns; instruments disagree. Investigate to learn how.', fragment: 'A Measurement That Cannot Repeat', interps: [] },
   legacy_ruin: { name: 'Named Ruin', cat: 'ruin', blurb: 'The ruins of an earlier cycle, named by someone who loved it.', fragment: 'An Inherited Place-Name', interps: [] },
 };
@@ -377,13 +378,14 @@ export const APPROACH = {
 export const LEGACIES = {
   ruin: { name: 'Named Ruin', kind: 'ruin', blurb: 'An archive ruin from the last cycle appears on the map.', gain: 'A ruin site near your start reveals a named fragment on exploration.', cost: 'It carries an obligation: -1 Memory/turn until you survey it.' },
   echo: { name: 'Institution Echo', kind: 'echo', blurb: 'An institution remembered by the land.', gain: 'The first interpretation you choose costs 30% less.', cost: 'The first institution also carries a 4 Coherence transition scar in each city.' },
+  heirloom: { name: 'Heirloom Relic', kind: 'heirloom', blurb: 'A relic the Witness carried out of the last cycle.', gain: 'You begin with that relic already in hand.', cost: 'Its catch comes with it.' },
   character: { name: 'Restored Character', kind: 'character', blurb: 'A former ruler rises, with expertise and a grievance.', gain: '+4 starting Memory and +1 Memory per turn for the first 10 turns.', cost: 'Begins with -10 relations toward one rival.' },
 };
 
 export const NAMES = {
   cityCap: ['Ostrava Lumen', 'Veil Meridian', 'Halcyon Row', 'Cenote of Glass', 'Amber Vigil', 'The Low Orchard', 'Sixth Mirror', 'Pale Harbour'],
   city: ['Ninefold Garden', 'Marrow Bridge', 'The Soft Observatory', 'Callow Spire', 'Tessel Quay', 'Rose Terminal', 'Hollow Sunrise', 'Wirewick', 'Paper Basilica', 'Lantern Ward', 'Ledger of Rain', 'Saffron Cutting'],
-  indep: ['Kestrel Reach', 'Sallow Conduit', 'The Quiet Kiln', 'Isle of Hands'],
+  indep: ['Kestrel Reach', 'Sallow Conduit', 'The Quiet Kiln', 'Isle of Hands', 'Tern Landing', 'The Ninth Window'],
   fragments: { ruin: 'The Name of This Place' },
 };
 

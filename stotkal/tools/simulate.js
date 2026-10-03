@@ -4,6 +4,7 @@
 import { newRun } from '../src/sim/state.js';
 import { endTurn } from '../src/sim/resolve.js';
 import { planAs } from '../src/sim/rival.js';
+import { botTurn } from '../src/sim/bot.js';
 import { civCities, totalResonance, civArmies } from '../src/sim/economy.js';
 import { AMBITIONS, TRADITIONS, DISPOSITIONS } from '../src/data/content.js';
 import { evaluate } from '../src/sim/ambitions.js';
@@ -14,7 +15,7 @@ export function playBot(seed, ambition, tradition, disp, opts = {}) {
   const trace = [];
   let guard = 0;
   while (!S.over && guard++ < 40) {
-    if (ambition !== 'idle') { planAs(S, 'you', fac, ambition); }
+    if (ambition !== 'idle') { botTurn(S, fac, ambition); }
     if (opts.trace && [5, 10, 15, 20, 25, 30].includes(S.turn)) trace.push({ turn: S.turn, res: { ...S.civs.you.res }, cities: civCities(S, 'you').length, pop: civCities(S, 'you').reduce((a, c) => a + c.pop, 0), coh: Math.round(civCities(S, 'you').reduce((a, c) => a + c.coh, 0) / Math.max(1, civCities(S, 'you').length)), techs: Object.keys(S.civs.you.techs).length, frags: S.civs.you.fragments.length, resTot: totalResonance(S), inst: S.civs.you.inst.filter(Boolean).map(x => x.id) });
     endTurn(S);
   }

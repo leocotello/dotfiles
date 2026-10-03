@@ -3,8 +3,11 @@ import { mulberry, hashStr, rnd, rint, stable } from './rng.js';
 import { key, dist, neighbors, within } from './hex.js';
 import { generateMap } from './mapgen.js';
 import { RES, zero, tileAt, civCities, civArmies } from './economy.js';
+import { initHero, refreshHero } from './hero.js';
+import { SEASONS, RELICS } from '../data/action.js';
+import { beginTurn } from './run.js';
 
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 export const RIVALS = ['conservatory', 'signal', 'veil'];
 
 export function nid(S, p) { S.nextId++; return p + S.nextId; }
@@ -34,6 +37,7 @@ export function newRun(opts = {}) {
     map: { R: map.R, tiles: map.tiles }, regions: [], civs: {}, civOrder: ['you', ...RIVALS], cities: {}, armies: {}, sites: {},
     treaties: [], wars: {}, proposals: [], relMem: {}, log: [], report: [], aiLog: [], nextId: 0, staged: {}, council: { offers: null, turn: 0, history: [], petition: {}, lastIds: [], pickedLog: [] },
     quiet: { stage: 0, forecastTurn: 0, revealed: false, crises: [], cd: {} }, resonance: {}, chronicle: [], flags: {}, mapAttempt: map.attempt,
+    hero: null, threats: {}, pending: [], exped: null, ageMod: null, beatHistory: [], beatLog: [], manual: false, worldId: null,
   };
   // regions
   const ex = [0, 0, 1, 1, 1, 2, 2]; for (let i = ex.length - 1; i > 0; i--) { const j = rint(S, i + 1); [ex[i], ex[j]] = [ex[j], ex[i]]; }
@@ -74,6 +78,12 @@ export function newRun(opts = {}) {
   const leg = opts.legacy && !opts.fresh ? opts.legacy : null;
   S.legacy = leg ? { ...leg } : null;
   if (leg) applyLegacy(S, leg);
+  // season (world modifier), hero, and the first turn of the action layer
+  const seasonIds = Object.keys(SEASONS); S.worldId = opts.world && SEASONS[opts.world] ? opts.world : seasonIds[rint(S, seasonIds.length)];
+  const W = SEASONS[S.worldId]; for (const id of S.civOrder) if (W.civFx && Object.keys(W.civFx).length) S.civs[id].mods.push({ id: 'season', label: W.name, kind: 'season', fx: { ...W.civFx } });
+  if (W.heroFx) S.civs.you.mods.push({ id: 'season_hero', label: W.name, kind: 'season', fx: { ...W.heroFx } });
+  initHero(S);
+  if (S.legacy && S.legacy.kind === 'heirloom' && RELICS[S.legacy.relic]) { const R = RELICS[S.legacy.relic]; S.civs.you.mods.push({ id: 'relic_' + S.legacy.relic, relicId: S.legacy.relic, kind: 'relic', label: R.name, fx: R.fx }); refreshHero(S); }
   // vision & discoveries
   S.initiative = {};
   updateVision(S);
@@ -83,6 +93,7 @@ export function newRun(opts = {}) {
   if (S.regions[pr].exposure === 2) { const swap = S.regions.find(r => r.exposure === 0) || S.regions.find(r => r.exposure === 1); const t = S.regions[pr].exposure; S.regions[pr].exposure = swap.exposure; swap.exposure = t; }
   S.chronicle.push({ turn: 1, text: 'The Witness woke beside ' + S.cities[S.civs.you.cap].name + '.' });
   log(S, 'you', 'You awaken. The world has layers; this is the nearest one.', 1);
+  beginTurn(S);
   return S;
 }
 
@@ -108,6 +119,7 @@ export function sightSources(S, civId) {
   for (const c of civCities(S, civId)) { const t = tileAt(S, c.q, c.r); out.push({ q: c.q, r: c.r, rad: 2 + (t.t === 'ridge' ? 1 : 0) }); }
   for (const t of Object.values(S.map.tiles)) if (t.outpost === civId && !t.city) out.push({ q: t.q, r: t.r, rad: 2 });
   for (const a of civArmies(S, civId)) { const t = tileAt(S, a.q, a.r); out.push({ q: a.q, r: a.r, rad: 2 + (TERRAIN_SIGHT(t)) }); }
+  if (civId === 'you' && S.hero) out.push({ q: S.hero.q, r: S.hero.r, rad: S.hero.sight + TERRAIN_SIGHT(tileAt(S, S.hero.q, S.hero.r)) });
   return out;
 }
 const TERRAIN_SIGHT = (t) => (t.t === 'ridge' ? 1 : 0);

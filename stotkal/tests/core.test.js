@@ -15,18 +15,18 @@ import { planAs } from '../src/sim/rival.js';
 
 test('content validates: references, prerequisites, no cycles, six techs per age', () => { assert.deepEqual(validateContent(), []); });
 
-test('map generation: connected, 65-80 traversable, content counts, viable accessible start (30 seeds)', () => {
+test('map generation: connected, 66-90% traversable, content counts, viable accessible start (30 seeds)', () => {
   for (let i = 0; i < 30; i++) {
     const m = generateMap('seed-' + i); const tiles = Object.values(m.tiles);
-    assert.equal(tiles.length, 91);
-    const pass = tiles.filter(t => TERRAIN[t.t].passable); assert.ok(pass.length >= 65 && pass.length <= 80, 'passable ' + pass.length);
+    assert.equal(tiles.length, 3 * CFG.radius * (CFG.radius + 1) + 1);
+    const pass = tiles.filter(t => TERRAIN[t.t].passable); assert.ok(pass.length >= tiles.length * 0.66 && pass.length <= tiles.length * 0.9, 'passable ' + pass.length);
     const seen = new Set([key(pass[0].q, pass[0].r)]); const st = [pass[0]];
     while (st.length) { const c = st.pop(); for (const n of neighbors(c.q, c.r)) { const t = m.tiles[key(n.q, n.r)]; if (t && TERRAIN[t.t].passable && !seen.has(key(t.q, t.r))) { seen.add(key(t.q, t.r)); st.push(t); } } }
     assert.equal(seen.size, pass.length, 'all traversable tiles connected');
-    assert.equal(m.caps.length, 4); assert.equal(m.indep.length, 4); assert.equal(m.sites.length, 12);
+    assert.equal(m.caps.length, 4); assert.equal(m.indep.length, 6); assert.equal(m.sites.length, 20); assert.equal(m.sites.filter(s => s.type === 'ruin').length, 8);
     assert.equal(m.sites.filter(s => s.type === 'anomaly').length, 3, 'three guaranteed anomaly sites');
     assert.ok(m.sites.some(s => s.type === 'meridian_spire'));
-    const p = m.caps[0]; assert.ok(m.sites.some(s => dist(s, p) <= 4 && s.type !== 'meridian_spire'), 'early discovery near start');
+    const p = m.caps[0]; assert.ok(m.sites.some(s => dist(s, p) <= 5 && s.type !== 'meridian_spire' && s.type !== 'ruin'), 'early discovery near start');
     for (const s of m.sites) assert.ok(TERRAIN[m.tiles[key(s.q, s.r)].t].passable, 'sites on traversable tiles');
     for (let a = 0; a < 4; a++) for (let b = a + 1; b < 4; b++) assert.ok(dist(m.caps[a], m.caps[b]) >= 5, 'capitals spaced');
     const around = [p, ...neighbors(p.q, p.r)].map(h => m.tiles[key(h.q, h.r)]).filter(Boolean);

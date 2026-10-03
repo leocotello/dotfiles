@@ -93,14 +93,22 @@ export function addResonance(S, civId, n, regionIdx) {
 }
 
 export function applyOffer(S, civ, offer, silent) {
+  const notes = applyFx(S, civ, offer.fx, offer);
+  civ.flags.picked = (civ.flags.picked || []).concat(offer.id);
+  const cat = offer.cat; civ.flags.catBoost = civ.flags.catBoost || {}; civ.flags.catBoost[cat] = Math.min(3, (civ.flags.catBoost[cat] || 0) + 1);
+  return notes;
+}
+// Shared effect interpreter (council offers, beats, rooms). `extra` lets the action layer handle hero ops first.
+export function applyFx(S, civ, fxList, offer, extra) {
   const notes = [];
-  for (const f of offer.fx) {
+  for (const f of fxList) {
+    if (extra && extra(f)) continue;
     switch (f.op) {
       case 'res': { for (const k of RES) if (f[k]) { civ.res[k] += f[k]; } notes.push('Resources gained.'); break; }
       case 'cohAll': for (const c of civCities(S, civ.id)) c.coh = Math.max(0, Math.min(100, c.coh + f.n)); break;
       case 'popRoom': { const r = addPopulation(S, civ, f.n, f.integ, 'welcome'); notes.push(`+${r.added} population`); break; }
-      case 'mod': civ.mods.push({ id: f.id, label: offer.title, fx: f.fx, turn: S.turn, expires: f.turns >= 99 ? null : S.turn + f.turns }); break;
-      case 'fragment': addFragment(S, civ, f.cat, f.name, offer.id); break;
+      case 'mod': civ.mods.push({ id: f.id, label: (offer && offer.title) || f.id, fx: f.fx, turn: S.turn, expires: f.turns >= 99 ? null : S.turn + f.turns }); break;
+      case 'fragment': addFragment(S, civ, f.cat, f.name, offer && offer.id); break;
       case 'rel': for (const o of S.civOrder) if (o !== civ.id && contact(S, civ.id, o)) relMemAdd(S, o, civ.id, f.all); break;
       case 'claim': { let n = f.n; const cand = Object.values(S.map.tiles).filter(t => !t.owner && !t.city && key(t.q, t.r) && civ.seen[key(t.q, t.r)] && neighborsOwned(S, civ, t)).sort((a, b) => yieldScore(b) - yieldScore(a) || a.q - b.q || a.r - b.r); for (const t of cand) { if (n <= 0) break; if (t.owner) continue; t.owner = civ.id; n--; } break; }
       case 'cohLowest': { const cs = civCities(S, civ.id).sort((a, b) => a.coh - b.coh); if (cs[0]) cs[0].coh = Math.min(100, cs[0].coh + f.n); break; }
@@ -110,8 +118,6 @@ export function applyOffer(S, civ, offer, silent) {
       case 'freeRegiment': giveRegiment(S, civ, f.role); break;
     }
   }
-  civ.flags.picked = (civ.flags.picked || []).concat(offer.id);
-  const cat = offer.cat; civ.flags.catBoost = civ.flags.catBoost || {}; civ.flags.catBoost[cat] = Math.min(3, (civ.flags.catBoost[cat] || 0) + 1);
   return notes;
 }
 const yieldScore = (t) => { const y = TERRAIN[t.t].yield; return Object.values(y).reduce((a, b) => a + b, 0) + (t.site ? 2 : 0); };

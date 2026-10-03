@@ -14,8 +14,10 @@ import { quietingPhase } from './quieting.js';
 import { evaluate } from './ambitions.js';
 import { planRivals } from './rival.js';
 import { buildEnding } from './chronicle.js';
+import { threatPhase } from './threats.js';
+import { beginTurn, autoResolve } from './run.js';
 
-export const PHASES = ['political', 'exploration', 'movement', 'conflict', 'production', 'construction', 'population', 'quieting'];
+export const PHASES = ['political', 'exploration', 'movement', 'conflict', 'threats', 'production', 'construction', 'population', 'quieting'];
 
 // Initiative: a seeded, stable tie-breaker re-drawn each turn. It is not a faction advantage: it only orders simultaneous actions.
 export function initiative(S, turn = S.turn) {
@@ -90,6 +92,7 @@ const PH = {
     for (const a of Object.values(S.armies)) if (!a.regs.length) delete S.armies[a.id];
     updateVision(S);
   },
+  threats(S) { threatPhase(S); updateVision(S); },
   production(S) {
     for (const civId of S.civOrder) {
       const civ = S.civs[civId]; if (civ.eliminated) continue;
@@ -213,6 +216,7 @@ export function summarize(S, fromLen) {
 
 export function endTurn(S) {
   if (S.over) return null;
+  if (S.pending.length) { if (S.manual) return { blocked: true, pending: S.pending[0].type }; autoResolve(S); }
   const logStart = S.log.length; S._outcomes = [];
   planRivals(S);
   for (const p of PHASES) { PH[p](S); }
@@ -228,7 +232,7 @@ export function endTurn(S) {
     const prevIds = (S.council.offers || []).map(o => o.id);
     S.council.lastIds = prevIds.length ? prevIds : S.council.lastIds;
     openCouncil(S);
-    updateVision(S); syncDiscoveries(S);
+    updateVision(S); syncDiscoveries(S); beginTurn(S);
   }
   return summary;
 }

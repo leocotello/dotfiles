@@ -46,7 +46,7 @@ test('every ambition has a discoverable baseline route in each generated world (
     const caps = Object.values(S.civs).map(c => S.cities[c.cap]);
     for (const s of sites.filter(s => s.type === 'anomaly' || s.type === 'meridian_spire')) for (const c of caps) assert.ok(dist(c, s) >= 2, 'site outside any capital border');
     // peaceful routes exist: at least four independent settlements to influence, and a baseline institution that needs no discovery
-    assert.equal(Object.values(S.cities).filter(c => c.ind).length, 4);
+    assert.equal(Object.values(S.cities).filter(c => c.ind).length, 6);
   }
 });
 

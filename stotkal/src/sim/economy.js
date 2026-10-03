@@ -1,6 +1,7 @@
 // Economy: sources of modifiers, per-city yields, upkeep, shortage allocation, coherence breakdown, connectivity.
 import { CFG, TERRAIN, DISTRICTS, TRADITIONS, DISPOSITIONS, TECHS, INSTITUTIONS, COMBOS } from '../data/content.js';
 import { key, parse, dist, neighbors } from './hex.js';
+import { BOONS, SETS } from '../data/action.js';
 
 export const RES = ['sus', 'mat', 'ene', 'mem'];
 export const zero = () => ({ sus: 0, mat: 0, ene: 0, mem: 0 });
@@ -19,7 +20,9 @@ export function sources(S, civ) {
   for (const s of civ.inst) if (s) out.push({ src: 'institution', label: INSTITUTIONS[s.id].name, fx: INSTITUTIONS[s.id].fx });
   for (const t of Object.keys(civ.techs)) if (TECHS[t].fx) out.push({ src: 'tech', label: TECHS[t].name, fx: TECHS[t].fx });
   for (const [id, c] of Object.entries(COMBOS)) if (hasInst(civ, c.needs.inst) && hasTech(civ, c.needs.tech)) out.push({ src: 'combo', label: c.name, fx: c.fx });
-  for (const m of civ.mods) out.push({ src: 'boon', label: m.label || m.id, fx: m.fx });
+  for (const m of civ.mods) out.push({ src: m.kind || 'boon', label: m.label || m.id, fx: m.fx });
+  const tagCount = {}; for (const m of civ.mods) if (m.kind === 'boon' && BOONS[m.boonId]) tagCount[BOONS[m.boonId].tag] = (tagCount[BOONS[m.boonId].tag] || 0) + 1;
+  for (const [tag, n] of Object.entries(tagCount)) { const set = SETS[tag]; if (!set) continue; if (n >= 2) out.push({ src: 'attunement', label: set.name + ' (2)', fx: set[2] }); if (n >= 3) out.push({ src: 'attunement', label: set.name + ' (3)', fx: set[3] }); }
   return out;
 }
 export const fx = (S, civ, k) => sources(S, civ).reduce((a, s) => a + (s.fx[k] || 0), 0);

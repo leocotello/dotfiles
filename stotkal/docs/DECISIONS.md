@@ -40,3 +40,8 @@ Numbers are balancing hypotheses in `src/data/content.js`. "Spec" = the design b
 * Rival council picks silently failed validation; they now apply (270 applied picks over 10 simulated runs).
 * Ten modifier keys in the data were never read by the simulation (some only by name in the UI), and several in-game promises (ferry, "rivals desire to claim", Circuit double-count) were not implemented. A test now fails on any dead modifier key, and the text was corrected.
 * Target highlighting in the renderer read a field the UI never set; fixed after the first screenshot review.
+
+## v2 departures from the original spec (deliberate)
+- The original brief ruled out real-time timers and separate battles. v2 adds **optional, UI-only countdowns** on some beats (default on, 15 s, can be disabled; headless sims never use them) and a **hero-scale encounter layer** (expeditions, skirmishes). Strategic army combat is unchanged; no tactical map was added.
+- The map is now radius 8 (≈160 passable tiles) with noise-painted terrain; save version bumped to 2 and v1 saves are rejected with a clear message.
+- Bot balance caveat: the heuristic bots still win most games (embodied ~100%, break ~60% over 12 seeds). That measures a tireless optimiser, not human difficulty; threat values were raised once and still need human playtesting.
